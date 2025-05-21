@@ -131,38 +131,38 @@ if uploaded_file is not None:
             st.pyplot(fig)
 
             if st.button("Add Plot to Report"):
-                idx = len(st.session_state.report_plots)
-                buf = io.BytesIO()
-                fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
-                buf.seek(0)
-                plot_key = f"Plot_{idx+1}"
-                st.session_state.report_plots.append((plot_key, buf.read()))
-                st.session_state.report_elements[plot_key] = True
+    idx = len(st.session_state.report_plots)
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
+    buf.seek(0)
+    plot_key = f"Plot_{idx+1}"
+    st.session_state.report_plots.append((plot_key, buf.read()))
+    st.session_state.report_elements[plot_key] = True
 
             param_df = pd.DataFrame(fitted_params)
             st.subheader("Fitted Parameters")
             st.dataframe(param_df)
             if st.button("Add Table to Report"):
-                name = f"Fitted Parameters {len([n for n, _ in st.session_state.report_tables if 'Fitted Parameters' in n]) + 1}"
-                st.session_state.report_tables.append((name, param_df.copy()))
-                st.session_state.report_elements[name] = True
+    name = f"Fitted Parameters {len([n for n, _ in st.session_state.report_tables if 'Fitted Parameters' in n]) + 1}"
+    st.session_state.report_tables.append((name, param_df.copy()))
+    st.session_state.report_elements[name] = True
 
             tt_df = pd.DataFrame(tt_results, columns=["Sample", "Time to Threshold"])
             st.subheader("Estimated Time to Threshold")
             st.dataframe(tt_df)
             if st.button("Add Time to Threshold Table to Report"):
-                name = f"Time to Threshold {len([n for n, _ in st.session_state.report_tables if 'Time to Threshold' in n]) + 1}"
-                st.session_state.report_tables.append((name, tt_df.copy()))
-                st.session_state.report_elements[name] = True
+    name = f"Time to Threshold {len([n for n, _ in st.session_state.report_tables if 'Time to Threshold' in n]) + 1}"
+    st.session_state.report_tables.append((name, tt_df.copy()))
+    st.session_state.report_elements[name] = True
 
             if fitted_data:
                 fitdata_df = pd.concat(fitted_data, ignore_index=True)
                 st.subheader("Fitted Curve Data")
                 st.dataframe(fitdata_df)
                 if st.button("Add Fitted Data to Report"):
-                    name = f"Fitted Curve Data {len([n for n, _ in st.session_state.report_tables if 'Fitted Curve Data' in n]) + 1}"
-                    st.session_state.report_tables.append((name, fitdata_df.copy()))
-                    st.session_state.report_elements[name] = True
+    name = f"Fitted Curve Data {len([n for n, _ in st.session_state.report_tables if 'Fitted Curve Data' in n]) + 1}"
+    st.session_state.report_tables.append((name, fitdata_df.copy()))
+    st.session_state.report_elements[name] = True
 
         else:
             st.warning("Not enough numeric columns available for plotting.")
@@ -184,11 +184,12 @@ if st.button("Download Report as Excel"):
             if st.session_state.report_elements.get(sheet_name):
                 safe_name = sheet_name[:31]
                 df.to_excel(writer, sheet_name=safe_name, index=False)
-            for name, plot_data in st.session_state.report_plots:
-                if st.session_state.report_elements.get(name):
-                    worksheet = workbook.add_worksheet(name[:31])
-                    image_stream = io.BytesIO(plot_data)
-                    worksheet.insert_image("B2", f"{name}.png", {'image_data': image_stream})
+        for item in st.session_state.report_plots:
+            name, plot_data = item
+            if st.session_state.report_elements.get(name):
+                worksheet = workbook.add_worksheet(name[:31])
+                image_stream = io.BytesIO(plot_data)
+                worksheet.insert_image("B2", f"{name}.png", {'image_data': image_stream})
     report_buf.seek(0)
     st.download_button(
         label="📥 Download Excel Report",
@@ -196,4 +197,3 @@ if st.button("Download Report as Excel"):
         file_name="fitting_report.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
