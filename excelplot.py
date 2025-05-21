@@ -114,8 +114,8 @@ if uploaded_file is not None:
                     if np.min(y_fit) <= threshold_value <= np.max(y_fit):
                         root = root_scalar(lambda x: fit_func(x) - threshold_value, bracket=[min(x_data), max(x_data)])
                         if root.converged:
-                            deriv = (fit_func(root.root + 1e-5) - fit_func(root.root - 1e-5)) / (2e-5)
-                            tt_var = (deriv ** -2) * np.dot(np.dot(np.gradient(y_fit), pcov), np.gradient(y_fit)) / len(x_data)
+                            deriv = (fit_func(root.root + 1e-5) - fit_func(root.root - 1e-5)) / (2e-5) 
+                            tt_var = (deriv ** -2) * np.sum(np.diag(pcov)) if pcov.size else 0
                             tt_stderr = np.sqrt(tt_var) if tt_var > 0 else np.nan
                             tt_results.append((sample, round(root.root, 4), round(tt_stderr, 4)))
                             ax.scatter(root.root, threshold_value, label=f"{sample} TT", marker='x', zorder=5)
