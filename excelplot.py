@@ -16,134 +16,96 @@ if "report_plots" not in st.session_state:
     st.session_state["report_plots"] = []
 if "report_tables" not in st.session_state:
     st.session_state["report_tables"] = []
+if "report_index" not in st.session_state:
+    st.session_state["report_index"] = 0
+if "report_elements" not in st.session_state:
+    st.session_state["report_elements"] = {}
 
 if uploaded_file is not None:
     try:
-        # Load Excel file and get sheet names
         xls = pd.ExcelFile(uploaded_file)
         sheet_names = xls.sheet_names
         st.success("File uploaded successfully!")
 
-        # Select sheet
         selected_sheet = st.selectbox("Select a sheet to analyze", sheet_names)
         df = pd.read_excel(xls, sheet_name=selected_sheet)
         st.subheader(f"Preview of '{selected_sheet}'")
         st.dataframe(df.head())
 
-        # Select sample-identifying column
         sample_column = st.selectbox("Select the column that contains sample identifiers", df.columns)
+        unique_samples = df[sample_column].dropna().unique()
+        selected_samples = st.multiselect("Filter by sample (optional)", unique_samples, default=list(unique_samples))
 
-        # Optional filtering by sample
-        if sample_column:
-            unique_samples = df[sample_column].dropna().unique()
-            selected_samples = st.multiselect("Filter by sample (optional)", unique_samples, default=list(unique_samples))
+        if selected_samples:
+            df = df[df[sample_column].isin(selected_samples)]
 
-            if selected_samples:
-                df = df[df[sample_column].isin(selected_samples)]
-
-        # Select X and Y axis columns (only numeric columns)
-        st.subheader("Select Data Columns for Plotting")
         numeric_columns = df.select_dtypes(include=["number"]).columns.tolist()
-
         if len(numeric_columns) >= 2:
             x_column = st.selectbox("Select X-axis column", numeric_columns)
             y_column = st.selectbox("Select Y-axis column", numeric_columns)
-
             st.write(f"Plotting `{y_column}` vs `{x_column}`")
 
-            # User input for threshold
-            st.subheader("Threshold Analysis")
             threshold_value = st.number_input(f"Enter Y-axis threshold value for '{y_column}'", value=1.0)
 
-            # Choose model to fit per sample
             sample_models = {}
             st.subheader("Choose a fitting model for each sample")
             for sample in selected_samples:
                 model = st.selectbox(f"Model for {sample}", ["Linear", "Sigmoid (Logistic)", "4PL", "5PL", "Gompertz"], key=f"model_{sample}")
                 sample_models[sample] = model
 
-            # Define model functions
-            def linear(x, a, b):
-                return a * x + b
+            def linear(x, a, b): return a * x + b
+            def sigmoid(x, a, b): return 1 / (1 + np.exp(-(x - a) / b))
+            def four_pl(x, A, B, C, D): return D + (A - D) / (1 + (x / C)**B)
+            def five_pl(x, A, B, C, D, G): return D + (A - D) / ((1 + (x / C)**B)**G)
+            def gompertz(x, a, b, c): return a * np.exp(-b * np.exp(-c * x))
 
-            def sigmoid(x, a, b):
-                return 1 / (1 + np.exp(-(x - a) / b))
+            models = {
+                "Linear": linear,
+                "Sigmoid (Logistic)": sigmoid,
+                "4PL": four_pl,
+                "5PL": five_pl,
+                "Gompertz": gompertz
+            }
 
-            def four_pl(x, A, B, C, D):
-                return D + (A - D) / (1 + (x / C)**B)
-
-            def five_pl(x, A, B, C, D, G):
-                return D + (A - D) / ((1 + (x / C)**B)**G)
-
-            def gompertz(x, a, b, c):
-                return a * np.exp(-b * np.exp(-c * x))
-
-            fitted_params = []
-            tt_results = []
+            fitted_params, tt_results, fitted_data = [], [], []
             x_range = np.linspace(df[x_column].min(), df[x_column].max(), 500)
-
-            fig, ax = plt.subplots()
+            fig, ax = plt.subplots(figsize=(8, 5))
 
             for sample in selected_samples:
                 group = df[df[sample_column] == sample].sort_values(x_column)
                 x_data = group[x_column].values
                 y_data = group[y_column].values
+                model_type = sample_models[sample]
+                model_func = models[model_type]
 
                 try:
-                    model_type = sample_models[sample]
-                
-                    if model_type == "Linear":
-                        popt, pcov = curve_fit(linear, x_data, y_data)
-                        fit_func = lambda x: linear(x, *popt)
-                        init_val = linear(min(x_data), *popt)
-                        max_val = linear(max(x_data), *popt)
-                        lag_time = np.nan
-                        growth_rate = popt[0]
-
-
-                    if model_type == "Linear":
-                        popt, pcov = curve_fit(linear, x_data, y_data)
-                        fit_func = lambda x: linear(x, *popt)
-                        init_val = linear(min(x_data), *popt)
-                        max_val = linear(max(x_data), *popt)
-                        lag_time = np.nan
-                        growth_rate = popt[0]
-                    elif model_type == "Sigmoid (Logistic)":
-                        popt, pcov = curve_fit(sigmoid, x_data, y_data, maxfev=10000)
-                        fit_func = lambda x: sigmoid(x, *popt)
-                        init_val = sigmoid(min(x_data), *popt)
-                        max_val = sigmoid(max(x_data), *popt)
-                        lag_time = popt[0]
-                        growth_rate = 1 / popt[1]
-                    elif model_type == "4PL":
-                        popt, pcov = curve_fit(four_pl, x_data, y_data, maxfev=10000)
-                        fit_func = lambda x: four_pl(x, *popt)
-                        init_val = four_pl(min(x_data), *popt)
-                        max_val = popt[0]
-                        lag_time = popt[2]
-                        growth_rate = popt[1]
-                    elif model_type == "5PL":
-                        popt, pcov = curve_fit(five_pl, x_data, y_data, maxfev=10000)
-                        fit_func = lambda x: five_pl(x, *popt)
-                        init_val = five_pl(min(x_data), *popt)
-                        max_val = popt[0]
-                        lag_time = popt[2]
-                        growth_rate = popt[1]
-                    elif model_type == "Gompertz":
-                        popt, pcov = curve_fit(gompertz, x_data, y_data, maxfev=10000)
-                        fit_func = lambda x: gompertz(x, *popt)
-                        init_val = gompertz(min(x_data), *popt)
-                        max_val = popt[0]
-                        lag_time = np.log(popt[1]) / popt[2]
-                        growth_rate = popt[2]
+                    popt, pcov = curve_fit(model_func, x_data, y_data, maxfev=10000)
+                    fit_func = lambda x: model_func(x, *popt)
+                    init_val = fit_func(min(x_data))
+                    max_val = fit_func(max(x_data))
+                    lag_time = np.nan
+                    growth_rate = np.nan
+                    if model_type == "Linear": growth_rate = popt[0]
+                    elif model_type == "Sigmoid (Logistic)": lag_time = popt[0]; growth_rate = 1 / popt[1]
+                    elif model_type in ["4PL", "5PL"]: lag_time = popt[2]; growth_rate = popt[1]
+                    elif model_type == "Gompertz": lag_time = np.log(popt[1]) / popt[2]; growth_rate = popt[2]
 
                     fitted_params.append({
                         "Sample": sample,
+                        "Model": model_type,
                         "Initial Value": round(init_val, 4),
                         "Lag Time": round(lag_time, 4) if not np.isnan(lag_time) else "N/A",
-                        "Growth Rate": round(growth_rate, 4),
+                        "Growth Rate": round(growth_rate, 4) if not np.isnan(growth_rate) else "N/A",
                         "Max Value": round(max_val, 4)
                     })
+
+                    fit_df = pd.DataFrame({
+                        x_column: x_range,
+                        y_column: fit_func(x_range)
+                    })
+                    fit_df[sample_column] = sample
+                    fit_df["Model"] = model_type
+                    fitted_data.append(fit_df)
 
                     try:
                         root = root_scalar(lambda x: fit_func(x) - threshold_value, bracket=[min(x_data), max(x_data)])
@@ -157,47 +119,60 @@ if uploaded_file is not None:
                     ax.plot(x_range, fit_func(x_range), '-', label=f"{sample} fit")
 
                 except Exception as e:
-                    fitted_params.append({
-                        "Sample": sample,
-                        "Initial Value": "Error",
-                        "Lag Time": "Error",
-                        "Growth Rate": "Error",
-                        "Max Value": "Error"
-                    })
+                    st.warning(f"Error fitting {sample}: {e}")
+                    fitted_params.append({"Sample": sample, "Model": model_type, "Initial Value": "Error", "Lag Time": "Error", "Growth Rate": "Error", "Max Value": "Error"})
                     tt_results.append((sample, "Error"))
 
             ax.axhline(threshold_value, color='red', linestyle='--', label="Threshold")
             ax.set_xlabel(x_column)
             ax.set_ylabel(y_column)
-            ax.set_title("Data, Fitted Curves, and Time to Threshold")
+            ax.set_title("Fitted Curves and Threshold")
             ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
             st.pyplot(fig)
 
             if st.button("Add Plot to Report"):
+                idx = st.session_state.report_index
                 buf = io.BytesIO()
-                fig.savefig(buf, format="png")
+                fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
                 buf.seek(0)
-                st.session_state.report_plots.append(buf.read())
-                st.success("Plot added to report")
+                st.session_state.report_plots.append((f"Plot_{idx+1}", buf.read()))
+                st.session_state.report_elements[f"Plot_{idx+1}"] = True
+                st.session_state.report_index += 1
 
-            st.subheader("Fitted Parameters")
             param_df = pd.DataFrame(fitted_params)
+            st.subheader("Fitted Parameters")
             st.dataframe(param_df)
             if st.button("Add Table to Report"):
-                st.session_state.report_tables.append(("Fitted Parameters", param_df.copy()))
-                st.success("Table added to report")
+                name = f"Fitted Parameters {st.session_state.report_index}"
+                st.session_state.report_tables.append((name, param_df.copy()))
+                st.session_state.report_elements[name] = True
 
-            st.subheader("Estimated Time to Threshold")
             tt_df = pd.DataFrame(tt_results, columns=["Sample", "Time to Threshold"])
+            st.subheader("Estimated Time to Threshold")
             st.dataframe(tt_df)
             if st.button("Add Time to Threshold Table to Report"):
-                st.session_state.report_tables.append(("Time to Threshold", tt_df.copy()))
-                st.success("Table added to report")
+                name = f"Time to Threshold {st.session_state.report_index}"
+                st.session_state.report_tables.append((name, tt_df.copy()))
+                st.session_state.report_elements[name] = True
+
+            if fitted_data:
+                fitdata_df = pd.concat(fitted_data, ignore_index=True)
+                st.subheader("Fitted Curve Data")
+                st.dataframe(fitdata_df)
+                if st.button("Add Fitted Data to Report"):
+                    name = f"Fitted Curve Data {st.session_state.report_index}"
+                    st.session_state.report_tables.append((name, fitdata_df.copy()))
+                    st.session_state.report_elements[name] = True
 
         else:
             st.warning("Not enough numeric columns available for plotting.")
     except Exception as e:
         st.error(f"An error occurred: {e}")
+
+# Report selector UI
+st.subheader("Select elements to include in report")
+for key in st.session_state.report_elements:
+    st.session_state.report_elements[key] = st.checkbox(f"Include: {key}", value=st.session_state.report_elements[key])
 
 # Button to export report
 st.subheader("Generate Report")
@@ -205,19 +180,15 @@ if st.button("Download Report as Excel"):
     report_buf = io.BytesIO()
     with pd.ExcelWriter(report_buf, engine="xlsxwriter") as writer:
         workbook = writer.book
-
-        # Write all tables
         for sheet_name, df in st.session_state.report_tables:
-            df.to_excel(writer, sheet_name=sheet_name[:31], index=False)
-
-        # Add plots as images
-        for i, plot_data in enumerate(st.session_state.report_plots):
-            image = Image.open(io.BytesIO(plot_data))
-            image_path = f"plot_{i}.png"
-            image.save(image_path)
-            worksheet = workbook.add_worksheet(f"Plot_{i+1}")
-            worksheet.insert_image("B2", image_path)
-
+            if st.session_state.report_elements.get(sheet_name):
+                safe_name = sheet_name[:31]
+                df.to_excel(writer, sheet_name=safe_name, index=False)
+        for name, plot_data in st.session_state.report_plots:
+            if st.session_state.report_elements.get(name):
+                worksheet = workbook.add_worksheet(name[:31])
+                image_stream = io.BytesIO(plot_data)
+                worksheet.insert_image("B2", f"{name}.png", {'image_data': image_stream})
     report_buf.seek(0)
     st.download_button(
         label="📥 Download Excel Report",
