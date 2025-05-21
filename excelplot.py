@@ -48,9 +48,9 @@ if uploaded_file is not None:
 
             st.subheader("Data Transformation Preview")
             fig_raw, ax_raw = plt.subplots()
-legend_toggle_raw = st.checkbox("Show raw legend", value=True, key="legend_raw")
+            legend_toggle_raw = st.checkbox("Show raw legend", value=True, key="legend_raw")
             fig_trans, ax_trans = plt.subplots()
-legend_toggle_trans = st.checkbox("Show transformed legend", value=True, key="legend_trans")
+            legend_toggle_trans = st.checkbox("Show transformed legend", value=True, key="legend_trans")
 
             for sample in preview_samples:
                 group = df[df[sample_column] == sample].sort_values(x_column)
@@ -118,7 +118,7 @@ legend_toggle_trans = st.checkbox("Show transformed legend", value=True, key="le
             fitted_params, tt_results, fitted_data = [], [], []
             x_range = np.linspace(df[x_column].min(), df[x_column].max(), 500)
             fig, ax = plt.subplots(figsize=(8, 5))
-legend_toggle = st.checkbox("Show legend", value=True)
+            legend_toggle = st.checkbox("Show legend", value=True)
 
             for sample in selected_samples:
                 group = df[df[sample_column] == sample].sort_values(x_column)
@@ -203,7 +203,7 @@ legend_toggle = st.checkbox("Show legend", value=True)
             ax.set_ylabel(y_column)
             ax.set_title("Fitted Curves and Threshold")
             if legend_toggle:
-    ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0., fontsize='small', ncol=1, fancybox=True, shadow=True, title='Legend', handlelength=1.5)
+                ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0., fontsize='small', ncol=1, fancybox=True, shadow=True, title='Legend', handlelength=1.5), loc='upper left', borderaxespad=0., fontsize='small', ncol=1, fancybox=True, shadow=True, title='Legend', handlelength=1.5)
             st.pyplot(fig)
 
             param_df = pd.DataFrame(fitted_params)
