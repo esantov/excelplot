@@ -4,4 +4,5 @@ numpy
 matplotlib
 scipy
 openpyxl
-
+Pillow
+xlsxwriter
