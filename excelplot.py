@@ -200,48 +200,14 @@ if uploaded_file is not None:
             ax.set_ylabel(y_column)
             ax.set_title("Fitted Curves and Threshold")
             if legend_toggle:
-                ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0., fontsize='small', ncol=1, fancybox=True, shadow=True, title='Legend', handlelength=1.5), loc='upper left', borderaxespad=0., fontsize='small', ncol=1, fancybox=True, shadow=True, title='Legend', handlelength=1.5)
-            st.pyplot(fig)
-
-            param_df = pd.DataFrame(fitted_params)
-            st.subheader("Fitted Parameters")
-            st.dataframe(param_df)
-
-            tt_df = pd.DataFrame(tt_results, columns=["Sample", "Time to Threshold", "Std Error"])
-            st.subheader("Estimated Time to Threshold")
-            st.dataframe(tt_df)
-
-            if fitted_data:
-                fitdata_df = pd.concat(fitted_data, ignore_index=True)
-                st.subheader("Fitted Curve Data")
-                st.dataframe(fitdata_df)
-
-            st.subheader("Export Report")
-            if st.button("📥 Export All Results to Excel"):
-                report_buf = io.BytesIO()
-                with pd.ExcelWriter(report_buf, engine="xlsxwriter") as writer:
-                    df.to_excel(writer, sheet_name="Input Data", index=False)
-                    if not fitdata_df.empty:
-                        fitdata_df.to_excel(writer, sheet_name="Fitted Data", index=False)
-                    if not param_df.empty:
-                        param_df.to_excel(writer, sheet_name="Fitted Parameters", index=False)
-                    if not tt_df.empty:
-                        tt_df.to_excel(writer, sheet_name="Time to Threshold", index=False)
-
-                    workbook = writer.book
-                    worksheet = workbook.add_worksheet("Fitted Plot")
-                    img_buf = io.BytesIO()
-                    fig.savefig(img_buf, format="png", dpi=300)
-                    img_buf.seek(0)
-                    worksheet.insert_image("B2", "plot.png", {"image_data": img_buf})
-
-                report_buf.seek(0)
-                st.download_button(
-                    label="Download Excel Report",
-                    data=report_buf,
-                    file_name="report.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                ax.legend(
+                    bbox_to_anchor=(1.05, 1),
+                    loc='upper left',
+                    borderaxespad=0.,
+                    fontsize='small',
+                    ncol=1,
+                    fancybox=True,
+                    shadow=True,
+                    title='Legend',
+                    handlelength=1.5
                 )
-
-    except Exception as e:
-        st.error(f"An error occurred: {e}")
