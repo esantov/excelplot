@@ -32,7 +32,7 @@ if uploaded_file is not None:
         with st.sidebar:
         sample_column = st.selectbox("Select the column that contains sample identifiers", df.columns)
         unique_samples = df[sample_column].dropna().unique()
-        selected_samples = st.multiselect("Filter by sample (optional)", unique_samples, default=list(unique_samples))
+                selected_samples = st.multiselect("Filter by sample (optional)", unique_samples, default=list(unique_samples))
 
         if selected_samples:
             df = df[df[sample_column].isin(selected_samples)]
@@ -277,44 +277,4 @@ with st.expander("📘 View transformation method definitions"):
     - **Delta from initial**: Computes the difference from the first value (y = y - y₀).
     - **Z-score normalization**: Scales each sample to mean 0 and standard deviation 1.
     - **I/I₀ normalization**: Scales each sample to its maximum (y = y / max(y)).
-    - **Min-Max normalization (0–1, sample-wise)**: Scales each sample between 0 and 1 using its own min and max values.
-    """)
-
-st.subheader("Generate Report")
-if st.button("🔄 Reset Session State"):
-    for key in ["report_plots", "report_tables", "report_index", "report_elements"]:
-        if key in st.session_state:
-            del st.session_state[key]
-    st.experimental_rerun()
-if st.button("Download Report as Excel"):
-    report_buf = io.BytesIO()
-    report_title = f"Fitting Report - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-    with pd.ExcelWriter(report_buf, engine="xlsxwriter") as writer:
-        workbook = writer.book
-        included_tables = [k for k in st.session_state.report_elements if st.session_state.report_elements[k] and (k.startswith("Fitted") or k.startswith("Time to Threshold"))]
-        included_plots = [k for k in st.session_state.report_elements if st.session_state.report_elements[k] and k.startswith("Plot")]
-        max_len = max(len(included_tables), len(included_plots))
-        included_tables.extend([None] * (max_len - len(included_tables)))
-        included_plots.extend([None] * (max_len - len(included_plots)))
-        summary_df = pd.DataFrame({"Included Tables": included_tables, "Included Plots": included_plots})
-        summary_df.to_excel(writer, sheet_name="Summary", index=False)
-
-        for sheet_name, df in st.session_state.report_tables:
-            if st.session_state.report_elements.get(sheet_name):
-                safe_name = sheet_name[:31]
-                df.to_excel(writer, sheet_name=safe_name, index=False)
-
-        for plot_item in st.session_state.report_plots:
-            if isinstance(plot_item, tuple) and len(plot_item) == 2:
-                name, plot_data = plot_item
-                if st.session_state.report_elements.get(name):
-                    worksheet = workbook.add_worksheet(name[:31])
-                    image_stream = io.BytesIO(plot_data)
-                    worksheet.insert_image("B2", f"{name}.png", {'image_data': image_stream})
-        report_buf.seek(0)
-    st.download_button(
-        label="📥 Download Excel Report",
-        data=report_buf,
-        file_name=f"{report_title}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    - **Min-Max normalization (0–1, sample-wise)**: Scales each sample between 0 and 1 using its own minimum and maximum values.
