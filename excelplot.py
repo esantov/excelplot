@@ -82,10 +82,13 @@ if uploaded_file is not None:
             threshold_value = st.number_input(f"Enter Y-axis threshold value for '{y_column}'", value=1.0)
 
             model_choices = ["Linear", "Sigmoid (Logistic)", "4PL", "5PL", "Gompertz"]
-            sample_models = {}
-            for sample in selected_samples:
-                model = st.selectbox(f"Model for {sample}", model_choices, key=f"model_{sample}")
-                sample_models[sample] = model
+            with st.expander("Model selection per sample", expanded=False):
+                cols = st.columns(3)
+                sample_models = {}
+                for idx, sample in enumerate(selected_samples):
+                    with cols[idx % 3]:
+                        model = st.selectbox(f"{sample}", model_choices, key=f"model_{sample}")
+                        sample_models[sample] = model
 
             def linear(x, a, b): return a * x + b
             def sigmoid(x, a, b): return 1 / (1 + np.exp(-(x - a) / b))
