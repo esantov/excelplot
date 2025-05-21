@@ -185,7 +185,7 @@ if st.button("Download Report as Excel"):
                 safe_name = sheet_name[:31]
                 df.to_excel(writer, sheet_name=safe_name, index=False)
         for item in st.session_state.report_plots:
-            name, plot_data = item
+        name, plot_data = item
             if st.session_state.report_elements.get(name):
                 worksheet = workbook.add_worksheet(name[:31])
                 image_stream = io.BytesIO(plot_data)
