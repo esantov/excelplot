@@ -1,17 +1,15 @@
 import numpy as np
-from scipy.optimize import curve_fit
-from scipy.optimize import root_scalar
+from scipy.optimize import curve_fit, root_scalar
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import io
 from PIL import Image
 import xlsxwriter
+import datetime
 
-# File uploader
 uploaded_file = st.file_uploader("Upload an Excel file", type=["xlsx", "xls"])
 
-# Initialize session state for report
 if "report_plots" not in st.session_state:
     st.session_state["report_plots"] = []
 if "report_tables" not in st.session_state:
@@ -23,30 +21,115 @@ if "report_elements" not in st.session_state:
 
 if uploaded_file is not None:
     try:
-        # Placeholder: your main fitting loop goes here
-        # Ensure variables like fit_func, x_data, threshold_value, etc., are defined
-        y_fit_vals = fit_func(x_data)
-        if np.min(y_fit_vals) <= threshold_value <= np.max(y_fit_vals):
-            root = root_scalar(lambda x: fit_func(x) - threshold_value, bracket=[min(x_data), max(x_data)])
-            if root.converged:
-                deriv = (fit_func(root.root + 1e-5) - fit_func(root.root - 1e-5)) / (2e-5)
-                tt_var = (deriv ** -2) * np.dot(np.dot(np.gradient(fit_func(x_data)), pcov), np.gradient(fit_func(x_data))) / len(x_data)
-                tt_stderr = np.sqrt(tt_var) if tt_var > 0 else np.nan
-                tt_results.append((sample, round(root.root, 4), round(tt_stderr, 4)))
-                ax.scatter(root.root, threshold_value, label=f"{sample} TT", marker='x', zorder=5)
-            else:
-                tt_results.append((sample, "N/A", "N/A"))
-        else:
-            tt_results.append((sample, "N/A", "N/A"))
-                
+        xls = pd.ExcelFile(uploaded_file)
+        sheet_names = xls.sheet_names
+        selected_sheet = st.selectbox("Select a sheet to analyze", sheet_names)
+        df = pd.read_excel(xls, sheet_name=selected_sheet)
+        st.dataframe(df.head())
+
+        sample_column = st.selectbox("Select the column that contains sample identifiers", df.columns)
+        unique_samples = df[sample_column].dropna().unique()
+        selected_samples = st.multiselect("Filter by sample (optional)", unique_samples, default=list(unique_samples))
+
+        if selected_samples:
+            df = df[df[sample_column].isin(selected_samples)]
+
+        numeric_columns = df.select_dtypes(include=["number"]).columns.tolist()
+        if len(numeric_columns) >= 2:
+            x_column = st.selectbox("Select X-axis column", numeric_columns)
+            y_column = st.selectbox("Select Y-axis column", numeric_columns)
+
+            threshold_value = st.number_input(f"Enter Y-axis threshold value for '{y_column}'", value=1.0)
+
+            model_choices = ["Linear", "Sigmoid (Logistic)", "4PL", "5PL", "Gompertz"]
+            sample_models = {}
+            for sample in selected_samples:
+                model = st.selectbox(f"Model for {sample}", model_choices, key=f"model_{sample}")
+                sample_models[sample] = model
+
+            def linear(x, a, b): return a * x + b
+            def sigmoid(x, a, b): return 1 / (1 + np.exp(-(x - a) / b))
+            def four_pl(x, A, B, C, D): return D + (A - D) / (1 + (x / C)**B)
+            def five_pl(x, A, B, C, D, G): return D + (A - D) / ((1 + (x / C)**B)**G)
+            def gompertz(x, a, b, c): return a * np.exp(-b * np.exp(-c * x))
+
+            models = {
+                "Linear": linear,
+                "Sigmoid (Logistic)": sigmoid,
+                "4PL": four_pl,
+                "5PL": five_pl,
+                "Gompertz": gompertz
+            }
+
+            fitted_params, tt_results, fitted_data = [], [], []
+            x_range = np.linspace(df[x_column].min(), df[x_column].max(), 500)
+            fig, ax = plt.subplots(figsize=(8, 5))
+
+            for sample in selected_samples:
+                group = df[df[sample_column] == sample].sort_values(x_column)
+                x_data = group[x_column].values
+                y_data = group[y_column].values
+
+                model_type = sample_models[sample]
+                model_func = models[model_type]
+
+                try:
+                    popt, pcov = curve_fit(model_func, x_data, y_data, maxfev=10000)
+                    fit_func = lambda x: model_func(x, *popt)
+                    y_fit = fit_func(x_data)
+                    init_val = y_fit.min()
+                    max_val = y_fit.max()
+                    lag_time = popt[2] if model_type in ["4PL", "5PL"] else (popt[0] if model_type == "Sigmoid (Logistic)" else np.nan)
+                    growth_rate = popt[1] if len(popt) > 1 else np.nan
+
+                    r_squared = 1 - (np.sum((y_data - y_fit)**2) / np.sum((y_data - np.mean(y_data))**2))
+                    rmse = np.sqrt(np.mean((y_data - y_fit)**2))
+
+                    fit_y = fit_func(x_range)
+                    ci = 1.96 * np.sqrt(np.diag(pcov)) if pcov.size else np.zeros_like(x_range)
+                    upper = fit_y + ci[0] if len(ci) > 0 else fit_y
+                    lower = fit_y - ci[0] if len(ci) > 0 else fit_y
+
+                    fit_df = pd.DataFrame({
+                        x_column: x_range,
+                        y_column: fit_y,
+                        "Lower CI": lower,
+                        "Upper CI": upper,
+                        sample_column: sample,
+                        "Model": model_type
+                    })
+                    fitted_data.append(fit_df)
+
+                    fitted_params.append({
+                        "Sample": sample,
+                        "Model": model_type,
+                        "Initial Value": round(init_val, 4),
+                        "Lag Time": round(lag_time, 4) if not np.isnan(lag_time) else "N/A",
+                        "Growth Rate": round(growth_rate, 4) if not np.isnan(growth_rate) else "N/A",
+                        "Max Value": round(max_val, 4),
+                        "R²": round(r_squared, 4),
+                        "RMSE": round(rmse, 4)
+                    })
+
+                    if np.min(y_fit) <= threshold_value <= np.max(y_fit):
+                        root = root_scalar(lambda x: fit_func(x) - threshold_value, bracket=[min(x_data), max(x_data)])
+                        if root.converged:
+                            deriv = (fit_func(root.root + 1e-5) - fit_func(root.root - 1e-5)) / (2e-5)
+                            tt_var = (deriv ** -2) * np.dot(np.dot(np.gradient(y_fit), pcov), np.gradient(y_fit)) / len(x_data)
+                            tt_stderr = np.sqrt(tt_var) if tt_var > 0 else np.nan
+                            tt_results.append((sample, round(root.root, 4), round(tt_stderr, 4)))
+                            ax.scatter(root.root, threshold_value, label=f"{sample} TT", marker='x', zorder=5)
+                        else:
+                            tt_results.append((sample, "N/A", "N/A"))
+                    else:
                         tt_results.append((sample, "N/A", "N/A"))
 
                     ax.plot(x_data, y_data, 'o', label=f"{sample} data")
-                    ax.plot(x_range, fit_func(x_range), '-', label=f"{sample} fit")
+                    ax.plot(x_range, fit_y, '-', label=f"{sample} fit")
 
                 except Exception as e:
                     st.warning(f"Error fitting {sample}: {e}")
-                    fitted_params.append({"Sample": sample, "Model": model_type, "Initial Value": "Error", "Lag Time": "Error", "Growth Rate": "Error", "Max Value": "Error"})
+                    fitted_params.append({"Sample": sample, "Model": model_type, "Initial Value": "Error", "Lag Time": "Error", "Growth Rate": "Error", "Max Value": "Error", "R²": "Error", "RMSE": "Error"})
                     tt_results.append((sample, "Error", "Error"))
 
             ax.axhline(threshold_value, color='red', linestyle='--', label="Threshold")
@@ -66,7 +149,6 @@ if uploaded_file is not None:
                 st.session_state.report_elements[plot_key] = True
 
             param_df = pd.DataFrame(fitted_params)
-            # Mark best model per sample (based on highest R²)
             best_models = param_df.loc[param_df.groupby("Sample")['R²'].idxmax()]
             param_df["Best Model"] = param_df.apply(lambda row: "✅" if ((best_models['Sample'] == row['Sample']) & (best_models['Model'] == row['Model'])).any() else "", axis=1)
             st.subheader("Fitted Parameters")
@@ -98,15 +180,16 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"An error occurred: {e}")
 
-# Report selector UI
 st.subheader("Select elements to include in report")
 for key in st.session_state.report_elements:
     st.session_state.report_elements[key] = st.checkbox(f"Include: {key}", value=st.session_state.report_elements[key])
 
-# Button to export report
-import datetime
-
 st.subheader("Generate Report")
+if st.button("🔄 Reset Session State"):
+    for key in ["report_plots", "report_tables", "report_index", "report_elements"]:
+        if key in st.session_state:
+            del st.session_state[key]
+    st.experimental_rerun()
 if st.button("Download Report as Excel"):
     report_buf = io.BytesIO()
     report_title = f"Fitting Report - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
@@ -117,10 +200,7 @@ if st.button("Download Report as Excel"):
         max_len = max(len(included_tables), len(included_plots))
         included_tables.extend([None] * (max_len - len(included_tables)))
         included_plots.extend([None] * (max_len - len(included_plots)))
-        summary_df = pd.DataFrame({
-            "Included Tables": included_tables,
-            "Included Plots": included_plots
-        })
+        summary_df = pd.DataFrame({"Included Tables": included_tables, "Included Plots": included_plots})
         summary_df.to_excel(writer, sheet_name="Summary", index=False)
 
         for sheet_name, df in st.session_state.report_tables:
