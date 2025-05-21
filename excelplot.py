@@ -101,7 +101,7 @@ if uploaded_file is not None:
                         growth_rate = popt[0]
 
 
-                                if model_type == "Linear":
+                    if model_type == "Linear":
                         popt, pcov = curve_fit(linear, x_data, y_data)
                         fit_func = lambda x: linear(x, *popt)
                         init_val = linear(min(x_data), *popt)
