@@ -90,18 +90,31 @@ if uploaded_file is not None:
                     elif model_type in ["4PL", "5PL"]: lag_time = popt[2]; growth_rate = popt[1]
                     elif model_type == "Gompertz": lag_time = np.log(popt[1]) / popt[2]; growth_rate = popt[2]
 
+                    r_squared = 1 - (np.sum((y_data - fit_func(x_data))**2) / np.sum((y_data - np.mean(y_data))**2))
+                    rmse = np.sqrt(np.mean((y_data - fit_func(x_data))**2))
+
                     fitted_params.append({
                         "Sample": sample,
                         "Model": model_type,
                         "Initial Value": round(init_val, 4),
                         "Lag Time": round(lag_time, 4) if not np.isnan(lag_time) else "N/A",
                         "Growth Rate": round(growth_rate, 4) if not np.isnan(growth_rate) else "N/A",
-                        "Max Value": round(max_val, 4)
+                        "Max Value": round(max_val, 4),
+                        "R²": round(r_squared, 4),
+                        "RMSE": round(rmse, 4)
                     })
+
+                    fit_y = fit_func(x_range)
+                    # Confidence interval calculation
+                    ci = 1.96 * np.sqrt(np.diag(pcov))  # 95% confidence for each parameter
+                    upper = fit_y + ci[0] if len(ci) > 0 else fit_y
+                    lower = fit_y - ci[0] if len(ci) > 0 else fit_y
 
                     fit_df = pd.DataFrame({
                         x_column: x_range,
-                        y_column: fit_func(x_range)
+                        y_column: fit_y,
+                        "Lower CI": lower,
+                        "Upper CI": upper
                     })
                     fit_df[sample_column] = sample
                     fit_df["Model"] = model_type
@@ -109,8 +122,12 @@ if uploaded_file is not None:
 
                     try:
                         root = root_scalar(lambda x: fit_func(x) - threshold_value, bracket=[min(x_data), max(x_data)])
+                        # Estimate std error using delta method
+                        deriv = (fit_func(root.root + 1e-5) - fit_func(root.root - 1e-5)) / (2e-5)
+                        tt_var = (deriv ** -2) * np.dot(np.dot(np.gradient(fit_func(x_data)), pcov), np.gradient(fit_func(x_data))) / len(x_data)
+                        tt_stderr = np.sqrt(tt_var) if tt_var > 0 else np.nan
                         if root.converged:
-                            tt_results.append((sample, root.root))
+                            tt_results.append((sample, round(root.root, 4), round(tt_stderr, 4)))
                             ax.scatter(root.root, threshold_value, label=f"{sample} TT", marker='x', zorder=5)
                     except:
                         tt_results.append((sample, "N/A"))
@@ -140,6 +157,9 @@ if uploaded_file is not None:
                 st.session_state.report_elements[plot_key] = True
 
             param_df = pd.DataFrame(fitted_params)
+            # Mark best model per sample (based on highest R²)
+            best_models = param_df.loc[param_df.groupby("Sample")['R²'].idxmax()]
+            param_df["Best Model"] = param_df.apply(lambda row: "✅" if ((best_models['Sample'] == row['Sample']) & (best_models['Model'] == row['Model'])).any() else "", axis=1)
             st.subheader("Fitted Parameters")
             st.dataframe(param_df)
             if st.button("Add Table to Report"):
@@ -147,7 +167,7 @@ if uploaded_file is not None:
                 st.session_state.report_tables.append((name, param_df.copy()))
                 st.session_state.report_elements[name] = True
 
-            tt_df = pd.DataFrame(tt_results, columns=["Sample", "Time to Threshold"])
+            tt_df = pd.DataFrame(tt_results, columns=["Sample", "Time to Threshold", "Std Error"])
             st.subheader("Estimated Time to Threshold")
             st.dataframe(tt_df)
             if st.button("Add Time to Threshold Table to Report"):
@@ -183,10 +203,15 @@ if st.button("Download Report as Excel"):
     report_title = f"Fitting Report - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     with pd.ExcelWriter(report_buf, engine="xlsxwriter") as writer:
         workbook = writer.book
-        summary_df = pd.DataFrame({
-            "Included Tables": [k for k in st.session_state.report_elements if st.session_state.report_elements[k] and k.startswith("Fitted")],
-            "Included Plots": [k for k in st.session_state.report_elements if st.session_state.report_elements[k] and k.startswith("Plot")]
-        })
+        included_tables = [k for k in st.session_state.report_elements if st.session_state.report_elements[k] and k.startswith("Fitted")]
+included_plots = [k for k in st.session_state.report_elements if st.session_state.report_elements[k] and k.startswith("Plot")]
+max_len = max(len(included_tables), len(included_plots))
+included_tables.extend([None] * (max_len - len(included_tables)))
+included_plots.extend([None] * (max_len - len(included_plots)))
+summary_df = pd.DataFrame({
+    "Included Tables": included_tables,
+    "Included Plots": included_plots
+})
         summary_df.to_excel(writer, sheet_name="Summary", index=False)
         for sheet_name, df in st.session_state.report_tables:
             if st.session_state.report_elements.get(sheet_name):
