@@ -1,7 +1,10 @@
-
+import numpy as np
+from scipy.optimize import curve_fit
+from scipy.optimize import root_scalar
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+
 
 st.title("Excel Data Analyzer and Plotter")
 
@@ -63,3 +66,85 @@ if uploaded_file is not None:
         st.error("Missing dependency: openpyxl. Add it to requirements.txt.")
     except Exception as e:
         st.error(f"An error occurred: {e}")
+# User input for threshold
+st.subheader("Threshold Analysis")
+threshold_value = st.number_input(f"Enter Y-axis threshold value for '{y_column}'", value=1.0)
+
+# Choose model to fit
+model_type = st.selectbox("Choose a model to fit", ["Linear", "Sigmoid (Logistic)", "4PL", "5PL", "Gompertz"])
+
+# Define model functions
+def linear(x, a, b):
+    return a * x + b
+
+def sigmoid(x, a, b):
+    return 1 / (1 + np.exp(-(x - a) / b))
+
+def four_pl(x, A, B, C, D):
+    return D + (A - D) / (1 + (x / C)**B)
+
+def five_pl(x, A, B, C, D, G):
+    return D + (A - D) / ((1 + (x / C)**B)**G)
+
+def gompertz(x, a, b, c):
+    return a * np.exp(-b * np.exp(-c * x))
+
+# Fit model and extract parameters
+fitted_params = []
+for sample, group in df.groupby(sample_column):
+    group = group.sort_values(x_column)
+    x_data = group[x_column].values
+    y_data = group[y_column].values
+
+    try:
+        if model_type == "Linear":
+            popt, _ = curve_fit(linear, x_data, y_data)
+            init_val = linear(min(x_data), *popt)
+            max_val = linear(max(x_data), *popt)
+            lag_time = np.nan
+            growth_rate = popt[0]
+        elif model_type == "Sigmoid (Logistic)":
+            popt, _ = curve_fit(sigmoid, x_data, y_data, maxfev=10000)
+            init_val = sigmoid(min(x_data), *popt)
+            max_val = sigmoid(max(x_data), *popt)
+            lag_time = popt[0]
+            growth_rate = 1 / popt[1]
+        elif model_type == "4PL":
+            popt, _ = curve_fit(four_pl, x_data, y_data, maxfev=10000)
+            init_val = four_pl(min(x_data), *popt)
+            max_val = popt[0]  # A
+            lag_time = popt[2]  # C
+            growth_rate = popt[1]  # B
+        elif model_type == "5PL":
+            popt, _ = curve_fit(five_pl, x_data, y_data, maxfev=10000)
+            init_val = five_pl(min(x_data), *popt)
+            max_val = popt[0]  # A
+            lag_time = popt[2]  # C
+            growth_rate = popt[1]  # B
+        elif model_type == "Gompertz":
+            popt, _ = curve_fit(gompertz, x_data, y_data, maxfev=10000)
+            init_val = gompertz(min(x_data), *popt)
+            max_val = popt[0]  # a
+            lag_time = np.log(popt[1]) / popt[2]  # ln(b)/c
+            growth_rate = popt[2]  # c
+
+        fitted_params.append({
+            "Sample": sample,
+            "Initial Value": round(init_val, 4),
+            "Lag Time": round(lag_time, 4) if not np.isnan(lag_time) else "N/A",
+            "Growth Rate": round(growth_rate, 4),
+            "Max Value": round(max_val, 4)
+        })
+
+    except Exception as e:
+        fitted_params.append({
+            "Sample": sample,
+            "Initial Value": "Error",
+            "Lag Time": "Error",
+            "Growth Rate": "Error",
+            "Max Value": "Error"
+        })
+
+# Show parameter table
+st.subheader("Fitted Parameters")
+st.dataframe(pd.DataFrame(fitted_params))
