@@ -4,9 +4,8 @@ from scipy.optimize import root_scalar
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-
-
-st.title("Excel Data Analyzer and Plotter")
+import io
+from PIL import Image
 
 # File uploader
 uploaded_file = st.file_uploader("Upload an Excel file", type=["xlsx", "xls"])
@@ -46,19 +45,27 @@ if uploaded_file is not None:
             if x_column and y_column:
                 st.write(f"Plotting `{y_column}` vs `{x_column}`")
 
-                # Plotting
-                fig, ax = plt.subplots()
-
-                # Plot each sample group as its own line
-                for sample_name, group in df.groupby(sample_column):
-                    group_sorted = group.sort_values(by=x_column)
-                    ax.plot(group_sorted[x_column], group_sorted[y_column], marker='o', linestyle='-', label=str(sample_name))
-
-                ax.set_xlabel(x_column)
-                ax.set_ylabel(y_column)
-                ax.set_title(f"{y_column} vs {x_column} by {sample_column}")
-                ax.legend(title=sample_column, bbox_to_anchor=(1.05, 1), loc='upper left')
-                st.pyplot(fig)
+# Initialize session state for report
+if "report_plots" not in st.session_state:
+    st.session_state["report_plots"] = []
+if "report_tables" not in st.session_state:
+    st.session_state["report_tables"] = []
+st.title("Excel Data Analyzer and Plotter")
+                
+# Plotting
+                
+fig, ax = plt.subplots()
+               
+# Plot each sample group as its own line
+                
+for sample_name, group in df.groupby(sample_column):                   
+    group_sorted = group.sort_values(by=x_column)                
+    ax.plot(group_sorted[x_column], group_sorted[y_column], marker='o', linestyle='-', label=str(sample_name))                
+ax.set_xlabel(x_column)                
+ax.set_ylabel(y_column)                
+ax.set_title(f"{y_column} vs {x_column} by {sample_column}")                
+ax.legend(title=sample_column, bbox_to_anchor=(1.05, 1), loc='upper left')              
+st.pyplot(fig)
         else:
             st.warning("Not enough numeric columns available for plotting.")
 
