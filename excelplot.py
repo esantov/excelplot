@@ -121,7 +121,16 @@ if uploaded_file is not None:
                     fitted_data.append(fit_df)
 
                     try:
-                        root = root_scalar(lambda x: fit_func(x) - threshold_value, bracket=[min(x_data), max(x_data)])
+                     
+                        # Only try to find root if the curve crosses the threshold
+                        y_fit_vals = fit_func(x_data)
+                        if np.min(y_fit_vals) <= threshold_value <= np.max(y_fit_vals):
+                            root = root_scalar(lambda x: fit_func(x) - threshold_value, bracket=[min(x_data), max(x_data)])
+                            ...
+                        else:
+                            tt_results.append((sample, "N/A", "N/A"))
+
+                    
                         # Estimate std error using delta method
                         deriv = (fit_func(root.root + 1e-5) - fit_func(root.root - 1e-5)) / (2e-5)
                         tt_var = (deriv ** -2) * np.dot(np.dot(np.gradient(fit_func(x_data)), pcov), np.gradient(fit_func(x_data))) / len(x_data)
