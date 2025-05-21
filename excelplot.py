@@ -30,9 +30,9 @@ if uploaded_file is not None:
         st.dataframe(df.head())
 
         with st.sidebar:
-        sample_column = st.selectbox("Select the column that contains sample identifiers", df.columns)
-        unique_samples = df[sample_column].dropna().unique()
-                selected_samples = st.multiselect("Filter by sample (optional)", unique_samples, default=list(unique_samples))
+            sample_column = st.selectbox("Select the column that contains sample identifiers", df.columns)
+                    unique_samples = df[sample_column].dropna().unique()
+            selected_samples = st.multiselect("Filter by sample (optional)", unique_samples, default=list(unique_samples))
 
         if selected_samples:
             df = df[df[sample_column].isin(selected_samples)]
