@@ -25,3 +25,10 @@ if uploaded_file:
         st.error("Missing dependency: openpyxl. Add it to requirements.txt.")
     except Exception as e:
         st.error(f"An error occurred: {e}")
+
+# Step 1: Choose the sample-identifying column
+sample_column = st.selectbox("Select the column that contains sample identifiers", df.columns)
+
+if sample_column:
+    st.write(f"You selected: `{sample_column}` to identify samples.")
+    st.dataframe(df[[sample_column]].drop_duplicates().head())
