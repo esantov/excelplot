@@ -41,7 +41,7 @@ if uploaded_file is not None:
 
             # === Transformation Options ===
             st.subheader("Data Transformation")
-            transform_option = st.selectbox("Select transformation", ["None", "Baseline subtraction", "Log transform", "Delta from initial", "Z-score normalization", "I/I₀ normalization"])
+            transform_option = st.selectbox("Select transformation", ["None", "Baseline subtraction", "Log transform", "Delta from initial", "Z-score normalization", "I/I₀ normalization", "Min-Max normalization (0–1, shared)"])
 
             preview_samples = st.multiselect("Select samples to preview transformation", selected_samples, default=selected_samples)
 
@@ -64,6 +64,10 @@ if uploaded_file is not None:
                     y_vals_trans = (y_vals - np.mean(y_vals)) / np.std(y_vals) if np.std(y_vals) != 0 else y_vals
                 elif transform_option == "I/I₀ normalization":
                     y_vals_trans = y_vals / np.max(y_vals) if np.max(y_vals) != 0 else y_vals
+                elif transform_option == "Min-Max normalization (0–1, shared)":
+                    global_min = df[y_column].min()
+                    global_max = df[y_column].max()
+                    y_vals_trans = (y_vals - global_min) / (global_max - global_min) if global_max != global_min else y_vals
                 else:
                     y_vals_trans = y_vals
 
@@ -86,7 +90,7 @@ if uploaded_file is not None:
             model_choices = ["Linear", "Sigmoid (Logistic)", "4PL", "5PL", "Gompertz"]
             with st.expander("Model selection per sample", expanded=False):
                 default_model = st.selectbox("Set default model for all", model_choices, key="default_model_all")
-                cols = st.columns(3)
+                            cols = st.columns(3)
                 sample_models = {}
                 for idx, sample in enumerate(selected_samples):
                     with cols[idx % 3]:
@@ -125,7 +129,11 @@ if uploaded_file is not None:
                 elif transform_option == "Z-score normalization":
                     y_data = (y_data - np.mean(y_data)) / np.std(y_data) if np.std(y_data) != 0 else y_data
                 elif transform_option == "I/I₀ normalization":
-                    y_data = y_data / np.max(y_data) if np.max(y_data) != 0 else y_data
+                y_data = y_data / np.max(y_data) if np.max(y_data) != 0 else y_data
+            elif transform_option == "Min-Max normalization (0–1, shared)":
+                global_min = df[y_column].min()
+                global_max = df[y_column].max()
+                y_data = (y_data - global_min) / (global_max - global_min) if global_max != global_min else y_data
 
                 model_type = sample_models[sample]
                 model_func = models[model_type]
