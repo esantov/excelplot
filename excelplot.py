@@ -186,10 +186,14 @@ for key in st.session_state.report_elements:
 
 st.subheader("Generate Report")
 if st.button("🔄 Reset Session State"):
-    for key in ["report_plots", "report_tables", "report_index", "report_elements"]:
+    st.session_state["trigger_reset"] = True
+
+if st.session_state.get("trigger_reset", False):
+    for key in ["report_plots", "report_tables", "report_index", "report_elements", "trigger_reset"]:
         if key in st.session_state:
             del st.session_state[key]
     st.experimental_rerun()
+
 if st.button("Download Report as Excel"):
     report_buf = io.BytesIO()
     report_title = f"Fitting Report - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
