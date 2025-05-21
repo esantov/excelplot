@@ -39,6 +39,46 @@ if uploaded_file is not None:
             x_column = st.selectbox("Select X-axis column", numeric_columns)
             y_column = st.selectbox("Select Y-axis column", numeric_columns)
 
+            # === Transformation Options ===
+            st.subheader("Data Transformation")
+            transform_option = st.selectbox("Select transformation", ["None", "Baseline subtraction", "Log transform", "Delta from initial", "Z-score normalization"])
+
+            preview_samples = st.multiselect("Select samples to preview transformation", selected_samples, default=selected_samples[:3])
+
+            fig_raw, ax_raw = plt.subplots()
+            fig_trans, ax_trans = plt.subplots()
+
+            for sample in preview_samples:
+                group = df[df[sample_column] == sample].sort_values(x_column)
+                x_vals = group[x_column].values
+                y_vals = group[y_column].values
+                ax_raw.plot(x_vals, y_vals, label=f"{sample} raw")
+
+                if transform_option == "Baseline subtraction":
+                    y_vals_trans = y_vals - y_vals[0]
+                elif transform_option == "Log transform":
+                    y_vals_trans = np.log1p(y_vals)
+                elif transform_option == "Delta from initial":
+                    y_vals_trans = y_vals - y_vals[0]
+                elif transform_option == "Z-score normalization":
+                    y_vals_trans = (y_vals - np.mean(y_vals)) / np.std(y_vals) if np.std(y_vals) != 0 else y_vals
+                else:
+                    y_vals_trans = y_vals
+
+                ax_trans.plot(x_vals, y_vals_trans, label=f"{sample} transformed")
+
+            ax_raw.set_title("Before Transformation")
+            ax_trans.set_title("After Transformation")
+            ax_raw.set_xlabel(x_column)
+            ax_trans.set_xlabel(x_column)
+            ax_raw.set_ylabel(y_column)
+            ax_trans.set_ylabel(y_column)
+            ax_raw.legend()
+            ax_trans.legend()
+            st.pyplot(fig_raw)
+            st.pyplot(fig_trans)
+            y_column = st.selectbox("Select Y-axis column", numeric_columns)
+
             threshold_value = st.number_input(f"Enter Y-axis threshold value for '{y_column}'", value=1.0)
 
             model_choices = ["Linear", "Sigmoid (Logistic)", "4PL", "5PL", "Gompertz"]
@@ -114,8 +154,8 @@ if uploaded_file is not None:
                     if np.min(y_fit) <= threshold_value <= np.max(y_fit):
                         root = root_scalar(lambda x: fit_func(x) - threshold_value, bracket=[min(x_data), max(x_data)])
                         if root.converged:
-                            deriv = (fit_func(root.root + 1e-5) - fit_func(root.root - 1e-5)) / (2e-5) 
-                            tt_var = (deriv ** -2) * np.sum(np.diag(pcov)) if pcov.size else 0
+                            deriv = (fit_func(root.root + 1e-5) - fit_func(root.root - 1e-5)) / (2e-5)
+                            tt_var = (deriv ** -2) * np.dot(np.dot(np.gradient(y_fit), pcov), np.gradient(y_fit)) / len(x_data)
                             tt_stderr = np.sqrt(tt_var) if tt_var > 0 else np.nan
                             tt_results.append((sample, round(root.root, 4), round(tt_stderr, 4)))
                             ax.scatter(root.root, threshold_value, label=f"{sample} TT", marker='x', zorder=5)
@@ -186,14 +226,10 @@ for key in st.session_state.report_elements:
 
 st.subheader("Generate Report")
 if st.button("🔄 Reset Session State"):
-    st.session_state["trigger_reset"] = True
-
-if st.session_state.get("trigger_reset", False):
-    for key in ["report_plots", "report_tables", "report_index", "report_elements", "trigger_reset"]:
+    for key in ["report_plots", "report_tables", "report_index", "report_elements"]:
         if key in st.session_state:
             del st.session_state[key]
     st.experimental_rerun()
-
 if st.button("Download Report as Excel"):
     report_buf = io.BytesIO()
     report_title = f"Fitting Report - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
