@@ -32,3 +32,16 @@ sample_column = st.selectbox("Select the column that contains sample identifiers
 if sample_column:
     st.write(f"You selected: `{sample_column}` to identify samples.")
     st.dataframe(df[[sample_column]].drop_duplicates().head())
+
+# Step 2: Choose columns for X and Y axes
+st.subheader("Select Data Columns for Plotting")
+
+# Filter numeric columns for plotting options
+numeric_columns = df.select_dtypes(include=["number"]).columns.tolist()
+
+x_column = st.selectbox("Select X-axis column", numeric_columns)
+y_column = st.selectbox("Select Y-axis column", numeric_columns)
+
+# Show selected columns
+if x_column and y_column:
+    st.write(f"Plotting `{y_column}` vs `{x_column}`")
