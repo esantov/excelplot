@@ -23,107 +23,19 @@ if "report_elements" not in st.session_state:
 
 if uploaded_file is not None:
     try:
-        xls = pd.ExcelFile(uploaded_file)
-        sheet_names = xls.sheet_names
-        st.success("File uploaded successfully!")
-
-        selected_sheet = st.selectbox("Select a sheet to analyze", sheet_names)
-        df = pd.read_excel(xls, sheet_name=selected_sheet)
-        st.subheader(f"Preview of '{selected_sheet}'")
-        st.dataframe(df.head())
-
-        sample_column = st.selectbox("Select the column that contains sample identifiers", df.columns)
-        unique_samples = df[sample_column].dropna().unique()
-        selected_samples = st.multiselect("Filter by sample (optional)", unique_samples, default=list(unique_samples))
-
-        if selected_samples:
-            df = df[df[sample_column].isin(selected_samples)]
-
-        numeric_columns = df.select_dtypes(include=["number"]).columns.tolist()
-        if len(numeric_columns) >= 2:
-            x_column = st.selectbox("Select X-axis column", numeric_columns)
-            y_column = st.selectbox("Select Y-axis column", numeric_columns)
-            st.write(f"Plotting `{y_column}` vs `{x_column}`")
-
-            threshold_value = st.number_input(f"Enter Y-axis threshold value for '{y_column}'", value=1.0)
-
-            sample_models = {}
-            st.subheader("Choose a fitting model for each sample")
-            for sample in selected_samples:
-                model = st.selectbox(f"Model for {sample}", ["Linear", "Sigmoid (Logistic)", "4PL", "5PL", "Gompertz"], key=f"model_{sample}")
-                sample_models[sample] = model
-
-            def linear(x, a, b): return a * x + b
-            def sigmoid(x, a, b): return 1 / (1 + np.exp(-(x - a) / b))
-            def four_pl(x, A, B, C, D): return D + (A - D) / (1 + (x / C)**B)
-            def five_pl(x, A, B, C, D, G): return D + (A - D) / ((1 + (x / C)**B)**G)
-            def gompertz(x, a, b, c): return a * np.exp(-b * np.exp(-c * x))
-
-            models = {
-                "Linear": linear,
-                "Sigmoid (Logistic)": sigmoid,
-                "4PL": four_pl,
-                "5PL": five_pl,
-                "Gompertz": gompertz
-            }
-
-            fitted_params, tt_results, fitted_data = [], [], []
-            x_range = np.linspace(df[x_column].min(), df[x_column].max(), 500)
-            fig, ax = plt.subplots(figsize=(8, 5))
-
-            for sample in selected_samples:
-                group = df[df[sample_column] == sample].sort_values(x_column)
-                x_data = group[x_column].values
-                y_data = group[y_column].values
-                model_type = sample_models[sample]
-                model_func = models[model_type]
-
-                try:
-                    popt, pcov = curve_fit(model_func, x_data, y_data, maxfev=10000)
-                    fit_func = lambda x: model_func(x, *popt)
-                    init_val = fit_func(min(x_data))
-                    max_val = fit_func(max(x_data))
-                    lag_time = np.nan
-                    growth_rate = np.nan
-                    if model_type == "Linear": growth_rate = popt[0]
-                    elif model_type == "Sigmoid (Logistic)": lag_time = popt[0]; growth_rate = 1 / popt[1]
-                    elif model_type in ["4PL", "5PL"]: lag_time = popt[2]; growth_rate = popt[1]
-                    elif model_type == "Gompertz": lag_time = np.log(popt[1]) / popt[2]; growth_rate = popt[2]
-
-                    r_squared = 1 - (np.sum((y_data - fit_func(x_data))**2) / np.sum((y_data - np.mean(y_data))**2))
-                    rmse = np.sqrt(np.mean((y_data - fit_func(x_data))**2))
-
-                    fitted_params.append({
-                        "Sample": sample,
-                        "Model": model_type,
-                        "Initial Value": round(init_val, 4),
-                        "Lag Time": round(lag_time, 4) if not np.isnan(lag_time) else "N/A",
-                        "Growth Rate": round(growth_rate, 4) if not np.isnan(growth_rate) else "N/A",
-                        "Max Value": round(max_val, 4),
-                        "R²": round(r_squared, 4),
-                        "RMSE": round(rmse, 4)
-                    })
-
-                    fit_y = fit_func(x_range)
-                    # Confidence interval calculation
-                    ci = 1.96 * np.sqrt(np.diag(pcov))  # 95% confidence for each parameter
-                    upper = fit_y + ci[0] if len(ci) > 0 else fit_y
-                    lower = fit_y - ci[0] if len(ci) > 0 else fit_y
-
-                    fit_df = pd.DataFrame({
-                        x_column: x_range,
-                        y_column: fit_y,
-                        "Lower CI": lower,
-                        "Upper CI": upper
-                    })
-                    fit_df[sample_column] = sample
-                    fit_df["Model"] = model_type
-                    fitted_data.append(fit_df)
-
-                    try:
-                        y_fit_vals = fit_func(x_data)
-                        if np.min(y_fit_vals) <= threshold_value <= np.max(y_fit_vals):
-                            root = root_scalar(lambda x: fit_func(x) - threshold_value, bracket=[min(x_data), max(x_data)])
+                y_fit_vals = fit_func(x_data)
+                if np.min(y_fit_vals) <= threshold_value <= np.max(y_fit_vals):
+                    root = root_scalar(lambda x: fit_func(x) - threshold_value, bracket=[min(x_data), max(x_data)])
+                    if root.converged:
+                        deriv = (fit_func(root.root + 1e-5) - fit_func(root.root - 1e-5)) / (2e-5)
+                        tt_var = (deriv ** -2) * np.dot(np.dot(np.gradient(fit_func(x_data)), pcov), np.gradient(fit_func(x_data))) / len(x_data)
+                        tt_stderr = np.sqrt(tt_var) if tt_var > 0 else np.nan
+                        tt_results.append((sample, round(root.root, 4), round(tt_stderr, 4)))
+                        ax.scatter(root.root, threshold_value, label=f"{sample} TT", marker='x', zorder=5)
+                    else:
+                        tt_results.append((sample, "N/A", "N/A"))
+                else:
+                    tt_results.append((sample, "N/A", "N/A")) - threshold_value, bracket=[min(x_data), max(x_data)])
                         # Estimate std error using delta method
                         deriv = (fit_func(root.root + 1e-5) - fit_func(root.root - 1e-5)) / (2e-5)
                         tt_var = (deriv ** -2) * np.dot(np.dot(np.gradient(fit_func(x_data)), pcov), np.gradient(fit_func(x_data))) / len(x_data)
