@@ -89,17 +89,14 @@ if uploaded_file is not None:
             st.pyplot(fig_trans)
 
             st.markdown("---")
-            st.subheader("Model Fitting")
-
-            model_choices = ["Linear", "Sigmoid (Logistic)", "4PL", "5PL", "Gompertz"]
-            with st.expander("Model selection per sample", expanded=False):
+            with st.sidebar:
+                st.markdown("### Model Fitting")
+                model_choices = ["Linear", "Sigmoid (Logistic)", "4PL", "5PL", "Gompertz"]
                 default_model = st.selectbox("Set default model for all", model_choices, key="default_model_all")
-                cols = st.columns(3)
                 sample_models = {}
-                for idx, sample in enumerate(selected_samples):
-                    with cols[idx % 3]:
-                        model = st.selectbox(f"{sample}", model_choices, index=model_choices.index(default_model), key=f"model_select_{sample}")
-                        sample_models[sample] = model
+                for sample in selected_samples:
+                    sample_models[sample] = st.selectbox(f"Model for {sample}", model_choices, index=model_choices.index(default_model), key=f"model_select_{sample}")
+            
 
             def linear(x, a, b): return a * x + b
             def sigmoid(x, a, b): return 1 / (1 + np.exp(-(x - a) / b))
