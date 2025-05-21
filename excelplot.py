@@ -204,14 +204,14 @@ if st.button("Download Report as Excel"):
     with pd.ExcelWriter(report_buf, engine="xlsxwriter") as writer:
         workbook = writer.book
         included_tables = [k for k in st.session_state.report_elements if st.session_state.report_elements[k] and k.startswith("Fitted")]
-included_plots = [k for k in st.session_state.report_elements if st.session_state.report_elements[k] and k.startswith("Plot")]
-max_len = max(len(included_tables), len(included_plots))
-included_tables.extend([None] * (max_len - len(included_tables)))
-included_plots.extend([None] * (max_len - len(included_plots)))
-summary_df = pd.DataFrame({
-    "Included Tables": included_tables,
-    "Included Plots": included_plots
-})
+        included_plots = [k for k in st.session_state.report_elements if st.session_state.report_elements[k] and k.startswith("Plot")]
+        max_len = max(len(included_tables), len(included_plots))
+        included_tables.extend([None] * (max_len - len(included_tables)))
+        included_plots.extend([None] * (max_len - len(included_plots)))
+        summary_df = pd.DataFrame({
+            "Included Tables": included_tables,
+            "Included Plots": included_plots
+        })
         summary_df.to_excel(writer, sheet_name="Summary", index=False)
         for sheet_name, df in st.session_state.report_tables:
             if st.session_state.report_elements.get(sheet_name):
