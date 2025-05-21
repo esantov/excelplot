@@ -44,7 +44,7 @@ if uploaded_file is not None:
                                 y_column = st.selectbox("Select Y-axis column", numeric_columns, key="y_axis")
 
             # === Transformation Options ===
-            st.subheader("Data Transformation")
+                st.subheader("Data Transformation")
                         with st.sidebar:
                                 transform_option = st.selectbox("Select transformation", ["None", "Baseline subtraction", "Log transform", "Delta from initial", "Z-score normalization", "I/I₀ normalization", "Min-Max normalization (0–1, sample-wise)"], key="transform_option")
 
