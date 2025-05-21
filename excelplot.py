@@ -8,7 +8,8 @@ from PIL import Image
 import xlsxwriter
 import datetime
 
-uploaded_file = st.file_uploader("Upload an Excel file", type=["xlsx", "xls"])
+with st.sidebar:
+    uploaded_file = st.file_uploader("Upload an Excel file", type=["xlsx", "xls"])
 
 if "report_plots" not in st.session_state:
     st.session_state["report_plots"] = []
@@ -23,27 +24,31 @@ if uploaded_file is not None:
     try:
         xls = pd.ExcelFile(uploaded_file)
         sheet_names = xls.sheet_names
-        selected_sheet = st.selectbox("Select a sheet to analyze", sheet_names)
+        with st.sidebar:
+            selected_sheet = st.selectbox("Select a sheet to analyze", sheet_names)
         df = pd.read_excel(xls, sheet_name=selected_sheet)
         st.dataframe(df.head())
 
+        with st.sidebar:
         sample_column = st.selectbox("Select the column that contains sample identifiers", df.columns)
         unique_samples = df[sample_column].dropna().unique()
-        selected_samples = st.multiselect("Filter by sample (optional)", unique_samples, default=list(unique_samples))
+                selected_samples = st.multiselect("Filter by sample (optional)", unique_samples, default=list(unique_samples))
 
         if selected_samples:
             df = df[df[sample_column].isin(selected_samples)]
 
         numeric_columns = df.select_dtypes(include=["number"]).columns.tolist()
         if len(numeric_columns) >= 2:
-            x_column = st.selectbox("Select X-axis column", numeric_columns)
-            y_column = st.selectbox("Select Y-axis column", numeric_columns)
+                        with st.sidebar:
+                x_column = st.selectbox("Select X-axis column", numeric_columns)
+                            y_column = st.selectbox("Select Y-axis column", numeric_columns)
 
             # === Transformation Options ===
             st.subheader("Data Transformation")
-            transform_option = st.selectbox("Select transformation", ["None", "Baseline subtraction", "Log transform", "Delta from initial", "Z-score normalization", "I/I₀ normalization", "Min-Max normalization (0–1, shared)"])
+                        with st.sidebar:
+                transform_option = st.selectbox("Select transformation", ["None", "Baseline subtraction", "Log transform", "Delta from initial", "Z-score normalization", "I/I₀ normalization", "Min-Max normalization (0–1, shared)"])
 
-            preview_samples = st.multiselect("Select samples to preview transformation", selected_samples, default=selected_samples)
+                            preview_samples = st.multiselect("Select samples to preview transformation", selected_samples, default=selected_samples)
 
             fig_raw, ax_raw = plt.subplots()
             fig_trans, ax_trans = plt.subplots()
@@ -85,7 +90,8 @@ if uploaded_file is not None:
             st.pyplot(fig_trans)
             y_column = st.selectbox("Select Y-axis column", numeric_columns)
 
-            threshold_value = st.number_input(f"Enter Y-axis threshold value for '{y_column}'", value=1.0)
+                        with st.sidebar:
+                threshold_value = st.number_input(f"Enter Y-axis threshold value for '{y_column}'", value=1.0)
 
             model_choices = ["Linear", "Sigmoid (Logistic)", "4PL", "5PL", "Gompertz"]
             with st.expander("Model selection per sample", expanded=False):
