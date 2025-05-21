@@ -186,10 +186,27 @@ ax.set_title("Data, Fitted Curves, and Time to Threshold")
 ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
 st.pyplot(fig)
 
+# Add plot to report
+if st.button("Add Plot to Report"):
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png")
+    buf.seek(0)
+    st.session_state.report_plots.append(buf.read())
+    st.success("Plot added to report")
+
 # Show parameter table
 st.subheader("Fitted Parameters")
-st.dataframe(pd.DataFrame(fitted_params))
+param_df = pd.DataFrame(fitted_params)
+st.dataframe(param_df)
+if st.button("Add Table to Report"):
+    st.session_state.report_tables.append(("Fitted Parameters", param_df.copy()))
+    st.success("Table added to report")
 
 # Show time-to-threshold values
 st.subheader("Estimated Time to Threshold")
-st.dataframe(pd.DataFrame(tt_results, columns=["Sample", "Time to Threshold"]))
+tt_df = pd.DataFrame(tt_results, columns=["Sample", "Time to Threshold"])
+st.dataframe(tt_df)
+if st.button("Add Time to Threshold Table to Report"):
+    st.session_state.report_tables.append(("Time to Threshold", tt_df.copy()))
+    st.success("Table added to report")
+
