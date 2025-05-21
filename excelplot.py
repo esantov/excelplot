@@ -143,26 +143,26 @@ if uploaded_file is not None:
             st.subheader("Fitted Parameters")
             st.dataframe(param_df)
             if st.button("Add Table to Report"):
-    name = f"Fitted Parameters {len([n for n, _ in st.session_state.report_tables if 'Fitted Parameters' in n]) + 1}"
-    st.session_state.report_tables.append((name, param_df.copy()))
-    st.session_state.report_elements[name] = True
+                name = f"Fitted Parameters {len([n for n, _ in st.session_state.report_tables if 'Fitted Parameters' in n]) + 1}"
+                st.session_state.report_tables.append((name, param_df.copy()))
+                st.session_state.report_elements[name] = True
 
             tt_df = pd.DataFrame(tt_results, columns=["Sample", "Time to Threshold"])
             st.subheader("Estimated Time to Threshold")
             st.dataframe(tt_df)
             if st.button("Add Time to Threshold Table to Report"):
-    name = f"Time to Threshold {len([n for n, _ in st.session_state.report_tables if 'Time to Threshold' in n]) + 1}"
-    st.session_state.report_tables.append((name, tt_df.copy()))
-    st.session_state.report_elements[name] = True
+                name = f"Time to Threshold {len([n for n, _ in st.session_state.report_tables if 'Time to Threshold' in n]) + 1}"
+                st.session_state.report_tables.append((name, tt_df.copy()))
+                st.session_state.report_elements[name] = True
 
             if fitted_data:
                 fitdata_df = pd.concat(fitted_data, ignore_index=True)
                 st.subheader("Fitted Curve Data")
                 st.dataframe(fitdata_df)
                 if st.button("Add Fitted Data to Report"):
-    name = f"Fitted Curve Data {len([n for n, _ in st.session_state.report_tables if 'Fitted Curve Data' in n]) + 1}"
-    st.session_state.report_tables.append((name, fitdata_df.copy()))
-    st.session_state.report_elements[name] = True
+                    name = f"Fitted Curve Data {len([n for n, _ in st.session_state.report_tables if 'Fitted Curve Data' in n]) + 1}"
+                    st.session_state.report_tables.append((name, fitdata_df.copy()))
+                    st.session_state.report_elements[name] = True
 
         else:
             st.warning("Not enough numeric columns available for plotting.")
