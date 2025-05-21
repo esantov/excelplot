@@ -39,17 +39,14 @@ if uploaded_file is not None:
 
         numeric_columns = df.select_dtypes(include=["number"]).columns.tolist()
         if len(numeric_columns) >= 2:
-                        with st.sidebar:
-                                x_column = st.selectbox("Select X-axis column", numeric_columns, key="x_axis")
-                                y_column = st.selectbox("Select Y-axis column", numeric_columns, key="y_axis")
+            with st.sidebar:
+                x_column = st.selectbox("Select X-axis column", numeric_columns, key="x_axis")
+                y_column = st.selectbox("Select Y-axis column", numeric_columns, key="y_axis")
+                transform_option = st.selectbox("Select transformation", ["None", "Baseline subtraction", "Log transform", "Delta from initial", "Z-score normalization", "I/I₀ normalization", "Min-Max normalization (0–1, sample-wise)"], key="transform_option")
+                preview_samples = st.multiselect("Select samples to preview transformation", selected_samples, default=selected_samples, key="preview_samples")
+                threshold_value = st.number_input(f"Enter Y-axis threshold value for '{y_column}'", value=1.0, key="threshold_value")
 
-            # === Transformation Options ===
-                st.subheader("Data Transformation")
-                        with st.sidebar:
-                                transform_option = st.selectbox("Select transformation", ["None", "Baseline subtraction", "Log transform", "Delta from initial", "Z-score normalization", "I/I₀ normalization", "Min-Max normalization (0–1, sample-wise)"], key="transform_option")
-
-                                            preview_samples = st.multiselect("Select samples to preview transformation", selected_samples, default=selected_samples, key="preview_samples")
-
+            st.subheader("Data Transformation Preview")
             fig_raw, ax_raw = plt.subplots()
             fig_trans, ax_trans = plt.subplots()
 
@@ -69,10 +66,8 @@ if uploaded_file is not None:
                     y_vals_trans = (y_vals - np.mean(y_vals)) / np.std(y_vals) if np.std(y_vals) != 0 else y_vals
                 elif transform_option == "I/I₀ normalization":
                     y_vals_trans = y_vals / np.max(y_vals) if np.max(y_vals) != 0 else y_vals
-                elif transform_option == "Min-Max normalization (0–1, shared)":
-                    global_min = df[y_column].min()
-                    global_max = df[y_column].max()
-                    y_vals_trans = (y_vals - global_min) / (global_max - global_min) if global_max != global_min else y_vals
+                elif transform_option == "Min-Max normalization (0–1, sample-wise)":
+                    y_vals_trans = (y_vals - np.min(y_vals)) / (np.max(y_vals) - np.min(y_vals)) if np.max(y_vals) != np.min(y_vals) else y_vals
                 else:
                     y_vals_trans = y_vals
 
@@ -88,6 +83,9 @@ if uploaded_file is not None:
             ax_trans.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
             st.pyplot(fig_raw)
             st.pyplot(fig_trans)
+
+   except Exception as e:
+        st.error(f"An error occurred: {e}")
             y_column = st.selectbox("Select Y-axis column", numeric_columns)
 
                         with st.sidebar:
