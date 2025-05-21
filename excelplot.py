@@ -175,11 +175,19 @@ for key in st.session_state.report_elements:
     st.session_state.report_elements[key] = st.checkbox(f"Include: {key}", value=st.session_state.report_elements[key])
 
 # Button to export report
+import datetime
+
 st.subheader("Generate Report")
 if st.button("Download Report as Excel"):
     report_buf = io.BytesIO()
+    report_title = f"Fitting Report - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     with pd.ExcelWriter(report_buf, engine="xlsxwriter") as writer:
         workbook = writer.book
+        summary_df = pd.DataFrame({
+            "Included Tables": [k for k in st.session_state.report_elements if st.session_state.report_elements[k] and k.startswith("Fitted")],
+            "Included Plots": [k for k in st.session_state.report_elements if st.session_state.report_elements[k] and k.startswith("Plot")]
+        })
+        summary_df.to_excel(writer, sheet_name="Summary", index=False)
         for sheet_name, df in st.session_state.report_tables:
             if st.session_state.report_elements.get(sheet_name):
                 safe_name = sheet_name[:31]
@@ -187,7 +195,7 @@ if st.button("Download Report as Excel"):
         for plot_item in st.session_state.report_plots:
             if isinstance(plot_item, tuple) and len(plot_item) == 2:
                 name, plot_data = plot_item
-            if st.session_state.report_elements.get(name):
+                if st.session_state.report_elements.get(name):
                 worksheet = workbook.add_worksheet(name[:31])
                 image_stream = io.BytesIO(plot_data)
                 worksheet.insert_image("B2", f"{name}.png", {'image_data': image_stream})
@@ -195,6 +203,7 @@ if st.button("Download Report as Excel"):
     st.download_button(
         label="📥 Download Excel Report",
         data=report_buf,
-        file_name="fitting_report.xlsx",
+        file_name=f"{report_title}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
