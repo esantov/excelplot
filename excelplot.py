@@ -138,7 +138,7 @@ if uploaded_file is not None:
                 except Exception as e:
                     st.warning(f"Error fitting {sample}: {e}")
                     fitted_params.append({"Sample": sample, "Model": model_type, "Initial Value": "Error", "Lag Time": "Error", "Growth Rate": "Error", "Max Value": "Error"})
-                    tt_results.append((sample, "Error"))
+                    tt_results.append((sample, "Error", "Error"))
 
             ax.axhline(threshold_value, color='red', linestyle='--', label="Threshold")
             ax.set_xlabel(x_column)
