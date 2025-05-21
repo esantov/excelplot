@@ -86,7 +86,7 @@ if uploaded_file is not None:
             model_choices = ["Linear", "Sigmoid (Logistic)", "4PL", "5PL", "Gompertz"]
             with st.expander("Model selection per sample", expanded=False):
                 default_model = st.selectbox("Set default model for all", model_choices, key="default_model_all")
-                            cols = st.columns(3)
+                cols = st.columns(3)
                 sample_models = {}
                 for idx, sample in enumerate(selected_samples):
                     with cols[idx % 3]:
