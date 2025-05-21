@@ -90,7 +90,16 @@ if uploaded_file is not None:
                 y_data = group[y_column].values
 
                 try:
-                model_type = sample_models[sample]
+                    model_type = sample_models[sample]
+                
+                    if model_type == "Linear":
+                        popt, pcov = curve_fit(linear, x_data, y_data)
+                        fit_func = lambda x: linear(x, *popt)
+                        init_val = linear(min(x_data), *popt)
+                        max_val = linear(max(x_data), *popt)
+                        lag_time = np.nan
+                        growth_rate = popt[0]
+
 
                                 if model_type == "Linear":
                         popt, pcov = curve_fit(linear, x_data, y_data)
@@ -216,4 +225,3 @@ if st.button("Download Report as Excel"):
         file_name="fitting_report.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
