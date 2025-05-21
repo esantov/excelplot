@@ -45,11 +45,16 @@ if uploaded_file is not None:
 
                 # Plotting
                 fig, ax = plt.subplots()
-                ax.plot(df[x_column], df[y_column], marker='o', linestyle='-')
+
+                # Plot each sample group as its own line
+                for sample_name, group in df.groupby(sample_column):
+                    group_sorted = group.sort_values(by=x_column)
+                    ax.plot(group_sorted[x_column], group_sorted[y_column], marker='o', linestyle='-', label=str(sample_name))
+
                 ax.set_xlabel(x_column)
                 ax.set_ylabel(y_column)
-                ax.set_title(f"{y_column} vs {x_column}")
-
+                ax.set_title(f"{y_column} vs {x_column} by {sample_column}")
+                ax.legend(title=sample_column, bbox_to_anchor=(1.05, 1), loc='upper left')
                 st.pyplot(fig)
         else:
             st.warning("Not enough numeric columns available for plotting.")
