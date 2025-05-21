@@ -131,13 +131,13 @@ if uploaded_file is not None:
             st.pyplot(fig)
 
             if st.button("Add Plot to Report"):
-            idx = len(st.session_state.report_plots)
-            buf = io.BytesIO()
-            fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
-            buf.seek(0)
-            plot_key = f"Plot_{idx+1}"
-            st.session_state.report_plots.append((plot_key, buf.read()))
-            st.session_state.report_elements[plot_key] = True
+                idx = len(st.session_state.report_plots)
+                buf = io.BytesIO()
+                fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
+                buf.seek(0)
+                plot_key = f"Plot_{idx+1}"
+                st.session_state.report_plots.append((plot_key, buf.read()))
+                st.session_state.report_elements[plot_key] = True
 
             param_df = pd.DataFrame(fitted_params)
             st.subheader("Fitted Parameters")
