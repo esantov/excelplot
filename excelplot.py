@@ -84,17 +84,13 @@ if uploaded_file is not None:
             st.pyplot(fig_raw)
             st.pyplot(fig_trans)
 
-   except Exception as e:
-        st.error(f"An error occurred: {e}")
-            y_column = st.selectbox("Select Y-axis column", numeric_columns)
-
-                        with st.sidebar:
-                                threshold_value = st.number_input(f"Enter Y-axis threshold value for '{y_column}'", value=1.0, key="threshold_value")
+            st.markdown("---")
+            st.subheader("Model Fitting")
 
             model_choices = ["Linear", "Sigmoid (Logistic)", "4PL", "5PL", "Gompertz"]
             with st.expander("Model selection per sample", expanded=False):
                 default_model = st.selectbox("Set default model for all", model_choices, key="default_model_all")
-                            cols = st.columns(3)
+                cols = st.columns(3)
                 sample_models = {}
                 for idx, sample in enumerate(selected_samples):
                     with cols[idx % 3]:
@@ -133,11 +129,9 @@ if uploaded_file is not None:
                 elif transform_option == "Z-score normalization":
                     y_data = (y_data - np.mean(y_data)) / np.std(y_data) if np.std(y_data) != 0 else y_data
                 elif transform_option == "I/I₀ normalization":
-                y_data = y_data / np.max(y_data) if np.max(y_data) != 0 else y_data
-            elif transform_option == "Min-Max normalization (0–1, shared)":
-                global_min = df[y_column].min()
-                global_max = df[y_column].max()
-                y_data = (y_data - global_min) / (global_max - global_min) if global_max != global_min else y_data
+                    y_data = y_data / np.max(y_data) if np.max(y_data) != 0 else y_data
+                elif transform_option == "Min-Max normalization (0–1, sample-wise)":
+                    y_data = (y_data - np.min(y_data)) / (np.max(y_data) - np.min(y_data)) if np.max(y_data) != np.min(y_data) else y_data
 
                 model_type = sample_models[sample]
                 model_func = models[model_type]
@@ -150,10 +144,8 @@ if uploaded_file is not None:
                     max_val = y_fit.max()
                     lag_time = popt[2] if model_type in ["4PL", "5PL"] else (popt[0] if model_type == "Sigmoid (Logistic)" else np.nan)
                     growth_rate = popt[1] if len(popt) > 1 else np.nan
-
                     r_squared = 1 - (np.sum((y_data - y_fit)**2) / np.sum((y_data - np.mean(y_data))**2))
                     rmse = np.sqrt(np.mean((y_data - y_fit)**2))
-
                     fit_y = fit_func(x_range)
                     ci = 1.96 * np.sqrt(np.diag(pcov)) if pcov.size else np.zeros_like(x_range)
                     upper = fit_y + ci[0] if len(ci) > 0 else fit_y
@@ -184,7 +176,7 @@ if uploaded_file is not None:
                         root = root_scalar(lambda x: fit_func(x) - threshold_value, bracket=[min(x_data), max(x_data)])
                         if root.converged:
                             deriv = (fit_func(root.root + 1e-5) - fit_func(root.root - 1e-5)) / (2e-5)
-                            tt_var = (deriv ** -2) * np.dot(np.dot(np.gradient(y_fit), pcov), np.gradient(y_fit)) / len(x_data)
+                            tt_var = (deriv ** -2) * np.sum(np.diag(pcov)) if pcov.size else 0
                             tt_stderr = np.sqrt(tt_var) if tt_var > 0 else np.nan
                             tt_results.append((sample, round(root.root, 4), round(tt_stderr, 4)))
                             ax.scatter(root.root, threshold_value, label=f"{sample} TT", marker='x', zorder=5)
@@ -208,71 +200,18 @@ if uploaded_file is not None:
             ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0., fontsize='small', ncol=1, fancybox=True, shadow=True, title='Legend')
             st.pyplot(fig)
 
-            if st.button("Add Plot to Report"):
-                idx = len(st.session_state.report_plots)
-                buf = io.BytesIO()
-                fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
-                buf.seek(0)
-                plot_key = f"Plot_{idx+1}"
-                st.session_state.report_plots.append((plot_key, buf.read()))
-                st.session_state.report_elements[plot_key] = True
-
             param_df = pd.DataFrame(fitted_params)
-            best_models = param_df.loc[param_df.groupby("Sample")['R²'].idxmax()]
-            param_df["Best Model"] = param_df.apply(lambda row: "✅" if ((best_models['Sample'] == row['Sample']) & (best_models['Model'] == row['Model'])).any() else "", axis=1)
             st.subheader("Fitted Parameters")
             st.dataframe(param_df)
-            if st.button("Add Table to Report"):
-                name = f"Fitted Parameters {len([n for n, _ in st.session_state.report_tables if 'Fitted Parameters' in n]) + 1}"
-                st.session_state.report_tables.append((name, param_df.copy()))
-                st.session_state.report_elements[name] = True
 
             tt_df = pd.DataFrame(tt_results, columns=["Sample", "Time to Threshold", "Std Error"])
             st.subheader("Estimated Time to Threshold")
             st.dataframe(tt_df)
-            if st.button("Add Time to Threshold Table to Report"):
-                name = f"Time to Threshold {len([n for n, _ in st.session_state.report_tables if 'Time to Threshold' in n]) + 1}"
-                st.session_state.report_tables.append((name, tt_df.copy()))
-                st.session_state.report_elements[name] = True
 
             if fitted_data:
-                raw_fitdata_df = pd.concat(fitted_data, ignore_index=True)
-                raw_fitdata_df['Transformation'] = transform_option
-                st.subheader("Fitted Curve Data")
-                st.dataframe(raw_fitdata_df)
-                if st.button("Add Raw + Fitted Data to Report"):
-                    name = f"Raw + Fitted Data {len([n for n, _ in st.session_state.report_tables if 'Raw + Fitted Data' in n]) + 1}"
-                    st.session_state.report_tables.append((name, raw_fitdata_df.copy()))
-                    st.session_state.report_elements[name] = True
-
-
+                fitdata_df = pd.concat(fitted_data, ignore_index=True)
                 st.subheader("Fitted Curve Data")
                 st.dataframe(fitdata_df)
-                if st.button("Add Fitted Data to Report"):
-                    name = f"Transformed + Fitted Data {len([n for n, _ in st.session_state.report_tables if 'Fitted Curve Data' in n]) + 1}"
-                    st.session_state.report_tables.append((name, fitdata_df.copy()))
-                    st.session_state.report_elements[name] = True
-                    st.session_state.report_tables.append((name, fitdata_df.copy()))
-                    st.session_state.report_elements[name] = True
 
-        else:
-            st.warning("Not enough numeric columns available for plotting.")
     except Exception as e:
         st.error(f"An error occurred: {e}")
-
-st.subheader("Select elements to include in report")
-for key in st.session_state.report_elements:
-    st.session_state.report_elements[key] = st.checkbox(f"Include: {key}", value=st.session_state.report_elements[key])
-
-st.subheader("Transformation Descriptions")
-with st.expander("📘 View transformation method definitions"):
-    st.markdown("""
-    **Transformation Types**
-    
-    - **None**: No transformation applied.
-    - **Baseline subtraction**: Subtracts the first y-value of each sample (y = y - y₀).
-    - **Log transform**: Applies a natural log transformation (log(1 + y)).
-    - **Delta from initial**: Computes the difference from the first value (y = y - y₀).
-    - **Z-score normalization**: Scales each sample to mean 0 and standard deviation 1.
-    - **I/I₀ normalization**: Scales each sample to its maximum (y = y / max(y)).
-    - **Min-Max normalization (0–1, sample-wise)**: Scales each sample between 0 and 1 using its own minimum and maximum values.
