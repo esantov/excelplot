@@ -211,3 +211,7 @@ if uploaded_file is not None:
                     title='Legend',
                     handlelength=1.5
                 )
+
+        # end of try block
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
