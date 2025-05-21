@@ -41,9 +41,9 @@ if uploaded_file is not None:
 
             # === Transformation Options ===
             st.subheader("Data Transformation")
-            transform_option = st.selectbox("Select transformation", ["None", "Baseline subtraction", "Log transform", "Delta from initial", "Z-score normalization"])
+            transform_option = st.selectbox("Select transformation", ["None", "Baseline subtraction", "Log transform", "Delta from initial", "Z-score normalization", "I/I₀ normalization"])
 
-            preview_samples = st.multiselect("Select samples to preview transformation", selected_samples, default=selected_samples[:3])
+            preview_samples = st.multiselect("Select samples to preview transformation", selected_samples, default=selected_samples)
 
             fig_raw, ax_raw = plt.subplots()
             fig_trans, ax_trans = plt.subplots()
@@ -62,6 +62,8 @@ if uploaded_file is not None:
                     y_vals_trans = y_vals - y_vals[0]
                 elif transform_option == "Z-score normalization":
                     y_vals_trans = (y_vals - np.mean(y_vals)) / np.std(y_vals) if np.std(y_vals) != 0 else y_vals
+                elif transform_option == "I/I₀ normalization":
+                    y_vals_trans = y_vals / np.max(y_vals) if np.max(y_vals) != 0 else y_vals
                 else:
                     y_vals_trans = y_vals
 
@@ -73,8 +75,8 @@ if uploaded_file is not None:
             ax_trans.set_xlabel(x_column)
             ax_raw.set_ylabel(y_column)
             ax_trans.set_ylabel(y_column)
-            ax_raw.legend()
-            ax_trans.legend()
+            ax_raw.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+            ax_trans.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
             st.pyplot(fig_raw)
             st.pyplot(fig_trans)
             y_column = st.selectbox("Select Y-axis column", numeric_columns)
@@ -84,7 +86,7 @@ if uploaded_file is not None:
             model_choices = ["Linear", "Sigmoid (Logistic)", "4PL", "5PL", "Gompertz"]
             with st.expander("Model selection per sample", expanded=False):
                 default_model = st.selectbox("Set default model for all", model_choices, key="default_model_all")
-                cols = st.columns(3)
+                            cols = st.columns(3)
                 sample_models = {}
                 for idx, sample in enumerate(selected_samples):
                     with cols[idx % 3]:
@@ -113,6 +115,17 @@ if uploaded_file is not None:
                 group = df[df[sample_column] == sample].sort_values(x_column)
                 x_data = group[x_column].values
                 y_data = group[y_column].values
+
+                if transform_option == "Baseline subtraction":
+                    y_data = y_data - y_data[0]
+                elif transform_option == "Log transform":
+                    y_data = np.log1p(y_data)
+                elif transform_option == "Delta from initial":
+                    y_data = y_data - y_data[0]
+                elif transform_option == "Z-score normalization":
+                    y_data = (y_data - np.mean(y_data)) / np.std(y_data) if np.std(y_data) != 0 else y_data
+                elif transform_option == "I/I₀ normalization":
+                    y_data = y_data / np.max(y_data) if np.max(y_data) != 0 else y_data
 
                 model_type = sample_models[sample]
                 model_func = models[model_type]
@@ -180,7 +193,7 @@ if uploaded_file is not None:
             ax.set_xlabel(x_column)
             ax.set_ylabel(y_column)
             ax.set_title("Fitted Curves and Threshold")
-            ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+            ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0., fontsize='small', ncol=1, fancybox=True, shadow=True, title='Legend')
             st.pyplot(fig)
 
             if st.button("Add Plot to Report"):
@@ -211,11 +224,22 @@ if uploaded_file is not None:
                 st.session_state.report_elements[name] = True
 
             if fitted_data:
-                fitdata_df = pd.concat(fitted_data, ignore_index=True)
+                raw_fitdata_df = pd.concat(fitted_data, ignore_index=True)
+                raw_fitdata_df['Transformation'] = transform_option
+                st.subheader("Fitted Curve Data")
+                st.dataframe(raw_fitdata_df)
+                if st.button("Add Raw + Fitted Data to Report"):
+                    name = f"Raw + Fitted Data {len([n for n, _ in st.session_state.report_tables if 'Raw + Fitted Data' in n]) + 1}"
+                    st.session_state.report_tables.append((name, raw_fitdata_df.copy()))
+                    st.session_state.report_elements[name] = True
+
+
                 st.subheader("Fitted Curve Data")
                 st.dataframe(fitdata_df)
                 if st.button("Add Fitted Data to Report"):
-                    name = f"Fitted Curve Data {len([n for n, _ in st.session_state.report_tables if 'Fitted Curve Data' in n]) + 1}"
+                    name = f"Transformed + Fitted Data {len([n for n, _ in st.session_state.report_tables if 'Fitted Curve Data' in n]) + 1}"
+                    st.session_state.report_tables.append((name, fitdata_df.copy()))
+                    st.session_state.report_elements[name] = True
                     st.session_state.report_tables.append((name, fitdata_df.copy()))
                     st.session_state.report_elements[name] = True
 
