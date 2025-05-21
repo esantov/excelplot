@@ -260,6 +260,20 @@ st.subheader("Select elements to include in report")
 for key in st.session_state.report_elements:
     st.session_state.report_elements[key] = st.checkbox(f"Include: {key}", value=st.session_state.report_elements[key])
 
+st.subheader("Transformation Descriptions")
+with st.expander("📘 View transformation method definitions"):
+    st.markdown("""
+    **Transformation Types**
+    
+    - **None**: No transformation applied.
+    - **Baseline subtraction**: Subtracts the first y-value of each sample (y = y - y₀).
+    - **Log transform**: Applies a natural log transformation (log(1 + y)).
+    - **Delta from initial**: Computes the difference from the first value (y = y - y₀).
+    - **Z-score normalization**: Scales each sample to mean 0 and standard deviation 1.
+    - **I/I₀ normalization**: Scales each sample to its maximum (y = y / max(y)).
+    - **Min-Max normalization (0–1, sample-wise)**: Scales each sample between 0 and 1 using its own min and max values.
+    """)
+
 st.subheader("Generate Report")
 if st.button("🔄 Reset Session State"):
     for key in ["report_plots", "report_tables", "report_index", "report_elements"]:
@@ -298,4 +312,3 @@ if st.button("Download Report as Excel"):
         file_name=f"{report_title}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
