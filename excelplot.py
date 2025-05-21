@@ -66,6 +66,7 @@ if uploaded_file is not None:
         st.error("Missing dependency: openpyxl. Add it to requirements.txt.")
     except Exception as e:
         st.error(f"An error occurred: {e}")
+
 # User input for threshold
 st.subheader("Threshold Analysis")
 threshold_value = st.number_input(f"Enter Y-axis threshold value for '{y_column}'", value=1.0)
@@ -89,45 +90,56 @@ def five_pl(x, A, B, C, D, G):
 def gompertz(x, a, b, c):
     return a * np.exp(-b * np.exp(-c * x))
 
-# Fit model and extract parameters
+# Fit model and extract parameters only for selected samples
 fitted_params = []
-for sample, group in df.groupby(sample_column):
-    group = group.sort_values(x_column)
+tt_results = []
+x_range = np.linspace(df[x_column].min(), df[x_column].max(), 500)
+
+fig, ax = plt.subplots()
+
+for sample in selected_samples:
+    group = df[df[sample_column] == sample].sort_values(x_column)
     x_data = group[x_column].values
     y_data = group[y_column].values
 
     try:
         if model_type == "Linear":
-            popt, _ = curve_fit(linear, x_data, y_data)
+            popt, pcov = curve_fit(linear, x_data, y_data)
+            fit_func = lambda x: linear(x, *popt)
             init_val = linear(min(x_data), *popt)
             max_val = linear(max(x_data), *popt)
             lag_time = np.nan
             growth_rate = popt[0]
         elif model_type == "Sigmoid (Logistic)":
-            popt, _ = curve_fit(sigmoid, x_data, y_data, maxfev=10000)
+            popt, pcov = curve_fit(sigmoid, x_data, y_data, maxfev=10000)
+            fit_func = lambda x: sigmoid(x, *popt)
             init_val = sigmoid(min(x_data), *popt)
             max_val = sigmoid(max(x_data), *popt)
             lag_time = popt[0]
             growth_rate = 1 / popt[1]
         elif model_type == "4PL":
-            popt, _ = curve_fit(four_pl, x_data, y_data, maxfev=10000)
+            popt, pcov = curve_fit(four_pl, x_data, y_data, maxfev=10000)
+            fit_func = lambda x: four_pl(x, *popt)
             init_val = four_pl(min(x_data), *popt)
-            max_val = popt[0]  # A
-            lag_time = popt[2]  # C
-            growth_rate = popt[1]  # B
+            max_val = popt[0]
+            lag_time = popt[2]
+            growth_rate = popt[1]
         elif model_type == "5PL":
-            popt, _ = curve_fit(five_pl, x_data, y_data, maxfev=10000)
+            popt, pcov = curve_fit(five_pl, x_data, y_data, maxfev=10000)
+            fit_func = lambda x: five_pl(x, *popt)
             init_val = five_pl(min(x_data), *popt)
-            max_val = popt[0]  # A
-            lag_time = popt[2]  # C
-            growth_rate = popt[1]  # B
+            max_val = popt[0]
+            lag_time = popt[2]
+            growth_rate = popt[1]
         elif model_type == "Gompertz":
-            popt, _ = curve_fit(gompertz, x_data, y_data, maxfev=10000)
+            popt, pcov = curve_fit(gompertz, x_data, y_data, maxfev=10000)
+            fit_func = lambda x: gompertz(x, *popt)
             init_val = gompertz(min(x_data), *popt)
-            max_val = popt[0]  # a
-            lag_time = np.log(popt[1]) / popt[2]  # ln(b)/c
-            growth_rate = popt[2]  # c
+            max_val = popt[0]
+            lag_time = np.log(popt[1]) / popt[2]
+            growth_rate = popt[2]
 
+        # Store fit info
         fitted_params.append({
             "Sample": sample,
             "Initial Value": round(init_val, 4),
@@ -135,6 +147,19 @@ for sample, group in df.groupby(sample_column):
             "Growth Rate": round(growth_rate, 4),
             "Max Value": round(max_val, 4)
         })
+
+        # Time to threshold
+        try:
+            root = root_scalar(lambda x: fit_func(x) - threshold_value, bracket=[min(x_data), max(x_data)])
+            if root.converged:
+                tt_results.append((sample, root.root))
+                ax.scatter(root.root, threshold_value, label=f"{sample} TT", marker='x', zorder=5)
+        except:
+            tt_results.append((sample, "N/A"))
+
+        # Plot data and fit
+        ax.plot(x_data, y_data, 'o', label=f"{sample} data")
+        ax.plot(x_range, fit_func(x_range), '-', label=f"{sample} fit")
 
     except Exception as e:
         fitted_params.append({
@@ -144,7 +169,20 @@ for sample, group in df.groupby(sample_column):
             "Growth Rate": "Error",
             "Max Value": "Error"
         })
+        tt_results.append((sample, "Error"))
+
+# Final plot formatting
+ax.axhline(threshold_value, color='red', linestyle='--', label="Threshold")
+ax.set_xlabel(x_column)
+ax.set_ylabel(y_column)
+ax.set_title("Data, Fitted Curves, and Time to Threshold")
+ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+st.pyplot(fig)
 
 # Show parameter table
 st.subheader("Fitted Parameters")
 st.dataframe(pd.DataFrame(fitted_params))
+
+# Show time-to-threshold values
+st.subheader("Estimated Time to Threshold")
+st.dataframe(pd.DataFrame(tt_results, columns=["Sample", "Time to Threshold"]))
