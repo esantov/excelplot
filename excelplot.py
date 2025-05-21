@@ -298,3 +298,4 @@ if st.button("Download Report as Excel"):
         file_name=f"{report_title}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
