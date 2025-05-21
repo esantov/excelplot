@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import os
+os.system("pip install openpyxl")
 
 st.title("Excel Data Analyzer")
 
