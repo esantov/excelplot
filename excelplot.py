@@ -130,7 +130,7 @@ if uploaded_file is not None:
                             tt_results.append((sample, round(root.root, 4), round(tt_stderr, 4)))
                             ax.scatter(root.root, threshold_value, label=f"{sample} TT", marker='x', zorder=5)
                     except:
-                        tt_results.append((sample, "N/A"))
+                        tt_results.append((sample, "N/A", "N/A"))
 
                     ax.plot(x_data, y_data, 'o', label=f"{sample} data")
                     ax.plot(x_range, fit_func(x_range), '-', label=f"{sample} fit")
