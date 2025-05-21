@@ -30,9 +30,9 @@ if uploaded_file is not None:
         st.dataframe(df.head())
 
         with st.sidebar:
-            sample_column = st.selectbox("Select the column that contains sample identifiers", df.columns)
+            sample_column = st.selectbox("Select the column that contains sample identifiers", df.columns, key="sample_column")
                     unique_samples = df[sample_column].dropna().unique()
-            selected_samples = st.multiselect("Filter by sample (optional)", unique_samples, default=list(unique_samples))
+                        selected_samples = st.multiselect("Filter by sample (optional)", unique_samples, default=list(unique_samples), key="sample_filter")
 
         if selected_samples:
             df = df[df[sample_column].isin(selected_samples)]
@@ -40,15 +40,15 @@ if uploaded_file is not None:
         numeric_columns = df.select_dtypes(include=["number"]).columns.tolist()
         if len(numeric_columns) >= 2:
                         with st.sidebar:
-                x_column = st.selectbox("Select X-axis column", numeric_columns)
-                            y_column = st.selectbox("Select Y-axis column", numeric_columns)
+                                x_column = st.selectbox("Select X-axis column", numeric_columns, key="x_axis")
+                                            y_column = st.selectbox("Select Y-axis column", numeric_columns, key="y_axis")
 
             # === Transformation Options ===
             st.subheader("Data Transformation")
                         with st.sidebar:
-                transform_option = st.selectbox("Select transformation", ["None", "Baseline subtraction", "Log transform", "Delta from initial", "Z-score normalization", "I/I₀ normalization", "Min-Max normalization (0–1, shared)"])
+                                transform_option = st.selectbox("Select transformation", ["None", "Baseline subtraction", "Log transform", "Delta from initial", "Z-score normalization", "I/I₀ normalization", "Min-Max normalization (0–1, sample-wise)"], key="transform_option")
 
-                            preview_samples = st.multiselect("Select samples to preview transformation", selected_samples, default=selected_samples)
+                                            preview_samples = st.multiselect("Select samples to preview transformation", selected_samples, default=selected_samples, key="preview_samples")
 
             fig_raw, ax_raw = plt.subplots()
             fig_trans, ax_trans = plt.subplots()
@@ -91,7 +91,7 @@ if uploaded_file is not None:
             y_column = st.selectbox("Select Y-axis column", numeric_columns)
 
                         with st.sidebar:
-                threshold_value = st.number_input(f"Enter Y-axis threshold value for '{y_column}'", value=1.0)
+                                threshold_value = st.number_input(f"Enter Y-axis threshold value for '{y_column}'", value=1.0, key="threshold_value")
 
             model_choices = ["Linear", "Sigmoid (Logistic)", "4PL", "5PL", "Gompertz"]
             with st.expander("Model selection per sample", expanded=False):
