@@ -222,7 +222,7 @@ summary_df = pd.DataFrame({
     "Included Tables": included_tables,
     "Included Plots": included_plots
 })
-        summary_df.to_excel(writer, sheet_name="Summary", index=False)
+summary_df.to_excel(writer, sheet_name="Summary", index=False)
         for sheet_name, df in st.session_state.report_tables:
             if st.session_state.report_elements.get(sheet_name):
                 safe_name = sheet_name[:31]
