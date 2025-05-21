@@ -196,9 +196,9 @@ if st.button("Download Report as Excel"):
             if isinstance(plot_item, tuple) and len(plot_item) == 2:
                 name, plot_data = plot_item
                 if st.session_state.report_elements.get(name):
-                worksheet = workbook.add_worksheet(name[:31])
-                image_stream = io.BytesIO(plot_data)
-                worksheet.insert_image("B2", f"{name}.png", {'image_data': image_stream})
+                    worksheet = workbook.add_worksheet(name[:31])
+                    image_stream = io.BytesIO(plot_data)
+                    worksheet.insert_image("B2", f"{name}.png", {'image_data': image_stream})
     report_buf.seek(0)
     st.download_button(
         label="📥 Download Excel Report",
