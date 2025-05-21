@@ -41,7 +41,7 @@ if uploaded_file is not None:
         if len(numeric_columns) >= 2:
                         with st.sidebar:
                                 x_column = st.selectbox("Select X-axis column", numeric_columns, key="x_axis")
-                                            y_column = st.selectbox("Select Y-axis column", numeric_columns, key="y_axis")
+                                y_column = st.selectbox("Select Y-axis column", numeric_columns, key="y_axis")
 
             # === Transformation Options ===
             st.subheader("Data Transformation")
