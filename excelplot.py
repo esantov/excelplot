@@ -199,6 +199,58 @@ if uploaded_file is not None:
             ax.set_xlabel(x_column)
             ax.set_ylabel(y_column)
             ax.set_title("Fitted Curves and Threshold")
+
+            with st.expander("Raw + Fitted Curve + CI + TT", expanded=False):
+                    for sample in selected_samples:
+                        fig_single, ax_single = plt.subplots(figsize=(7, 4))
+                        group = df[df[sample_column] == sample].sort_values(x_column)
+                        x_data = group[x_column].values
+                        y_data = group[y_column].values
+
+            if transform_option == "Baseline subtraction":
+                y_data = y_data - y_data[0]
+            elif transform_option == "Log transform":
+                y_data = np.log1p(y_data)
+            elif transform_option == "Delta from initial":
+                y_data = y_data - y_data[0]
+            elif transform_option == "Z-score normalization":
+                y_data = (y_data - np.mean(y_data)) / np.std(y_data) if np.std(y_data) != 0 else y_data
+            elif transform_option == "I/I₀ normalization":
+                y_data = y_data / np.max(y_data) if np.max(y_data) != 0 else y_data
+            elif transform_option == "Min-Max normalization (0–1, sample-wise)":
+                y_data = (y_data - np.min(y_data)) / (np.max(y_data) - np.min(y_data)) if np.max(y_data) != np.min(y_data) else y_data
+
+                model_type = sample_models[sample]
+                model_func = models[model_type]
+                try:
+                    popt, pcov = curve_fit(model_func, x_data, y_data, maxfev=10000)
+                    fit_func = lambda x: model_func(x, *popt)
+                    y_fit = fit_func(x_range)
+                    ci = 1.96 * np.sqrt(np.diag(pcov)) if pcov.size else np.zeros_like(x_range)
+                    upper = y_fit + ci[0] if len(ci) > 0 else y_fit
+                    lower = y_fit - ci[0] if len(ci) > 0 else y_fit
+                    ax_single.plot(x_data, y_data, 'o', label='Raw Data')
+                    ax_single.plot(x_range, y_fit, '-', color='green', label='Fitted Curve')
+                    ax_single.fill_between(x_range, lower, upper, color='green', alpha=0.2, label='95% CI')
+
+                    root = root_scalar(lambda x: fit_func(x) - threshold_value, bracket=[min(x_data), max(x_data)])
+                    if root.converged:
+                        tt_val = round(root.root, 4)
+                        deriv = (fit_func(root.root + 1e-5) - fit_func(root.root - 1e-5)) / (2e-5)
+                        tt_var = (deriv ** -2) * np.sum(np.diag(pcov)) if pcov.size else 0
+                        tt_stderr = round(np.sqrt(tt_var), 4) if tt_var > 0 else 'N/A'
+                        ax_single.axvline(tt_val, linestyle='--', color='red', label=f'TT = {tt_val} ± {tt_stderr}')
+                    ax_single.axhline(threshold_value, color='gray', linestyle='--', label='Threshold')
+
+                except:
+                    ax_single.plot(x_data, y_data, 'o', label='Raw Data')
+                    ax_single.text(0.5, 0.5, 'Fit Error', ha='center')
+
+                ax_single.set_title(f"{sample}: Raw + Fit + CI + TT")
+                ax_single.set_xlabel(x_column)
+                ax_single.set_ylabel(y_column)
+                ax_single.legend()
+                st.pyplot(fig_single)
             if legend_toggle:
                 ax.legend(
                     bbox_to_anchor=(1.05, 1),
@@ -212,6 +264,73 @@ if uploaded_file is not None:
                     handlelength=1.5
                 )
 
-        # end of try block
+        # Report management
+            if st.button("Add Plot to Report"):
+                buf = io.BytesIO()
+                fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
+                buf.seek(0)
+                name = f"Fitted Plot {len(st.session_state.report_plots) + 1}"
+                st.session_state.report_plots.append((name, buf.read()))
+                st.session_state.report_elements[name] = True
+
+            param_df = pd.DataFrame(fitted_params)
+            st.subheader("Fitted Parameters")
+            st.dataframe(param_df)
+            if st.button("Add Fitted Parameters to Report"):
+                name = f"Fitted Parameters {len(st.session_state.report_tables) + 1}"
+                st.session_state.report_tables.append((name, param_df.copy()))
+                st.session_state.report_elements[name] = True
+
+            tt_df = pd.DataFrame(tt_results, columns=["Sample", "Time to Threshold", "Std Error"])
+            st.subheader("Estimated Time to Threshold")
+            st.dataframe(tt_df)
+            if st.button("Add Time to Threshold to Report"):
+                name = f"Time to Threshold {len(st.session_state.report_tables) + 1}"
+                st.session_state.report_tables.append((name, tt_df.copy()))
+                st.session_state.report_elements[name] = True
+
+            if fitted_data:
+                fitdata_df = pd.concat(fitted_data, ignore_index=True)
+                fitdata_df['Transformation'] = transform_option
+                st.subheader("Fitted Curve Data")
+                st.dataframe(fitdata_df)
+                if st.button("Add Fitted Curve Data to Report"):
+                    name = f"Fitted Curve Data {len(st.session_state.report_tables) + 1}"
+                    st.session_state.report_tables.append((name, fitdata_df.copy()))
+                    st.session_state.report_elements[name] = True
+
+            st.subheader("Select elements to include in report")
+            for key in st.session_state.report_elements:
+                st.session_state.report_elements[key] = st.checkbox(f"Include: {key}", value=st.session_state.report_elements[key])
+
+            st.subheader("Export Report")
+            if st.button("📥 Export All Results to Excel"):
+                report_buf = io.BytesIO()
+                with pd.ExcelWriter(report_buf, engine="xlsxwriter") as writer:
+                    df.to_excel(writer, sheet_name="Input Data", index=False)
+                    summary_rows = []
+                    for name, table in st.session_state.report_tables:
+                        if st.session_state.report_elements.get(name):
+                            safe_name = name[:31]
+                            table.to_excel(writer, sheet_name=safe_name, index=False)
+                            summary_rows.append({"Included Table": safe_name})
+                    for name, plot_bytes in st.session_state.report_plots:
+                        if st.session_state.report_elements.get(name):
+                            worksheet = writer.book.add_worksheet(name[:31])
+                            image_stream = io.BytesIO(plot_bytes)
+                            worksheet.insert_image("B2", f"{name}.png", {"image_data": image_stream})
+                            summary_rows.append({"Included Plot": name[:31]})
+                    if summary_rows:
+                        summary_df = pd.DataFrame(summary_rows)
+                        summary_df.to_excel(writer, sheet_name="Summary", index=False)
+                report_buf.seek(0)
+                st.download_button(
+                    label="Download Excel Report",
+                    data=report_buf,
+                    file_name="Analysis_Report.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+
+            # end of try block
     except Exception as e:
         st.error(f"An error occurred: {e}")
