@@ -204,8 +204,8 @@ if uploaded_file is not None:
                 for sample in selected_samples:
                     fig_single, ax_single = plt.subplots(figsize=(7, 4))
                     group = df[df[sample_column] == sample].sort_values(x_column)
-                            x_data = group[x_column].values
-                            y_data = group[y_column].values
+                    x_data = group[x_column].values
+                    y_data = group[y_column].values
             
                             if transform_option == "Baseline subtraction":
                                 y_data = y_data - y_data[0]
