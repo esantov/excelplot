@@ -201,56 +201,56 @@ if uploaded_file is not None:
             ax.set_title("Fitted Curves and Threshold")
 
             with st.expander("Raw + Fitted Curve + CI + TT", expanded=False):
-    for sample in selected_samples:
-        fig_single, ax_single = plt.subplots(figsize=(7, 4))
-        group = df[df[sample_column] == sample].sort_values(x_column)
-        x_data = group[x_column].values
-        y_data = group[y_column].values
+                for sample in selected_samples:
+                    fig_single, ax_single = plt.subplots(figsize=(7, 4))
+                    group = df[df[sample_column] == sample].sort_values(x_column)
+                    x_data = group[x_column].values
+                    y_data = group[y_column].values
 
-        if transform_option == "Baseline subtraction":
-            y_data = y_data - y_data[0]
-        elif transform_option == "Log transform":
-            y_data = np.log1p(y_data)
-        elif transform_option == "Delta from initial":
-            y_data = y_data - y_data[0]
-        elif transform_option == "Z-score normalization":
-            y_data = (y_data - np.mean(y_data)) / np.std(y_data) if np.std(y_data) != 0 else y_data
-        elif transform_option == "I/I₀ normalization":
-            y_data = y_data / np.max(y_data) if np.max(y_data) != 0 else y_data
-        elif transform_option == "Min-Max normalization (0–1, sample-wise)":
-            y_data = (y_data - np.min(y_data)) / (np.max(y_data) - np.min(y_data)) if np.max(y_data) != np.min(y_data) else y_data
+                    if transform_option == "Baseline subtraction":
+                        y_data = y_data - y_data[0]
+                    elif transform_option == "Log transform":
+                        y_data = np.log1p(y_data)
+                    elif transform_option == "Delta from initial":
+                        y_data = y_data - y_data[0]
+                    elif transform_option == "Z-score normalization":
+                        y_data = (y_data - np.mean(y_data)) / np.std(y_data) if np.std(y_data) != 0 else y_data
+                    elif transform_option == "I/I₀ normalization":
+                        y_data = y_data / np.max(y_data) if np.max(y_data) != 0 else y_data
+                    elif transform_option == "Min-Max normalization (0–1, sample-wise)":
+                        y_data = (y_data - np.min(y_data)) / (np.max(y_data) - np.min(y_data)) if np.max(y_data) != np.min(y_data) else y_data
 
-        model_type = sample_models[sample]
-        model_func = models[model_type]
-        try:
-            popt, pcov = curve_fit(model_func, x_data, y_data, maxfev=10000)
-            fit_func = lambda x: model_func(x, *popt)
-            y_fit = fit_func(x_range)
-            ci = 1.96 * np.sqrt(np.diag(pcov)) if pcov.size else np.zeros_like(x_range)
-            upper = y_fit + ci[0] if len(ci) > 0 else y_fit
-            lower = y_fit - ci[0] if len(ci) > 0 else y_fit
-            ax_single.plot(x_data, y_data, 'o', label='Raw Data')
-            ax_single.plot(x_range, y_fit, '-', color='green', label='Fitted Curve')
-            ax_single.fill_between(x_range, lower, upper, color='green', alpha=0.2, label='95% CI')
+                    model_type = sample_models[sample]
+                    model_func = models[model_type]
+                    try:
+                        popt, pcov = curve_fit(model_func, x_data, y_data, maxfev=10000)
+                        fit_func = lambda x: model_func(x, *popt)
+                        y_fit = fit_func(x_range)
+                        ci = 1.96 * np.sqrt(np.diag(pcov)) if pcov.size else np.zeros_like(x_range)
+                        upper = y_fit + ci[0] if len(ci) > 0 else y_fit
+                        lower = y_fit - ci[0] if len(ci) > 0 else y_fit
+                        ax_single.plot(x_data, y_data, 'o', label='Raw Data')
+                        ax_single.plot(x_range, y_fit, '-', color='green', label='Fitted Curve')
+                        ax_single.fill_between(x_range, lower, upper, color='green', alpha=0.2, label='95% CI')
 
-            root = root_scalar(lambda x: fit_func(x) - threshold_value, bracket=[min(x_data), max(x_data)])
-            if root.converged:
-                tt_val = round(root.root, 4)
-                deriv = (fit_func(root.root + 1e-5) - fit_func(root.root - 1e-5)) / (2e-5)
-                tt_var = (deriv ** -2) * np.sum(np.diag(pcov)) if pcov.size else 0
-                tt_stderr = round(np.sqrt(tt_var), 4) if tt_var > 0 else 'N/A'
-                ax_single.axvline(tt_val, linestyle='--', color='red', label=f'TT = {tt_val} ± {tt_stderr}')
-            ax_single.axhline(threshold_value, color='gray', linestyle='--', label='Threshold')
+                        root = root_scalar(lambda x: fit_func(x) - threshold_value, bracket=[min(x_data), max(x_data)])
+                        if root.converged:
+                            tt_val = round(root.root, 4)
+                            deriv = (fit_func(root.root + 1e-5) - fit_func(root.root - 1e-5)) / (2e-5)
+                            tt_var = (deriv ** -2) * np.sum(np.diag(pcov)) if pcov.size else 0
+                            tt_stderr = round(np.sqrt(tt_var), 4) if tt_var > 0 else 'N/A'
+                            ax_single.axvline(tt_val, linestyle='--', color='red', label=f'TT = {tt_val} ± {tt_stderr}')
+                        ax_single.axhline(threshold_value, color='gray', linestyle='--', label='Threshold')
 
-        except:
-            ax_single.plot(x_data, y_data, 'o', label='Raw Data')
-            ax_single.text(0.5, 0.5, 'Fit Error', ha='center')
+                    except:
+                        ax_single.plot(x_data, y_data, 'o', label='Raw Data')
+                        ax_single.text(0.5, 0.5, 'Fit Error', ha='center')
 
-        ax_single.set_title(f"{sample}: Raw + Fit + CI + TT")
-        ax_single.set_xlabel(x_column)
-        ax_single.set_ylabel(y_column)
-        ax_single.legend()
-        st.pyplot(fig_single)
+                    ax_single.set_title(f"{sample}: Raw + Fit + CI + TT")
+                    ax_single.set_xlabel(x_column)
+                    ax_single.set_ylabel(y_column)
+                    ax_single.legend()
+                    st.pyplot(fig_single)
             if legend_toggle:
                 ax.legend(
                     bbox_to_anchor=(1.05, 1),
