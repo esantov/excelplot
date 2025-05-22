@@ -45,6 +45,7 @@ if uploaded_file is not None:
                 transform_option = st.selectbox("Select transformation", ["None", "Baseline subtraction", "Log transform", "Delta from initial", "Z-score normalization", "I/I₀ normalization", "Min-Max normalization (0–1, sample-wise)"], key="transform_option")
                 preview_samples = st.multiselect("Select samples to preview transformation", selected_samples, default=selected_samples, key="preview_samples")
                 threshold_value = st.number_input(f"Enter Y-axis threshold value for '{y_column}'", value=1.0, key="threshold_value")
+fit_transformed = st.checkbox("Fit transformed data instead of raw?", value=True)
 
             st.subheader("Data Transformation Preview")
             fig_raw, ax_raw = plt.subplots()
@@ -91,11 +92,16 @@ if uploaded_file is not None:
             st.markdown("---")
             with st.sidebar:
                 st.markdown("### Model Fitting")
-                model_choices = ["Linear", "Sigmoid (Logistic)", "4PL", "5PL", "Gompertz"]
+                model_choices = ["Linear", "Sigmoid (Logistic)", "4PL", "5PL", "Gompertz", "Exponential"]
                 default_model = st.selectbox("Set default model for all", model_choices, key="default_model_all")
-                sample_models = {}
-                for sample in selected_samples:
-                    sample_models[sample] = st.selectbox(f"Model for {sample}", model_choices, index=model_choices.index(default_model), key=f"model_select_{sample}")
+                sample_models = {
+    "Linear": linear,
+    "Sigmoid (Logistic)": sigmoid,
+    "4PL": four_pl,
+    "5PL": five_pl,
+    "Gompertz": gompertz,
+    "Exponential": exponential
+}", model_choices, index=model_choices.index(default_model), key=f"model_select_{sample}")
             
 
             def linear(x, a, b): return a * x + b
@@ -103,6 +109,7 @@ if uploaded_file is not None:
             def four_pl(x, A, B, C, D): return D + (A - D) / (1 + (x / C)**B)
             def five_pl(x, A, B, C, D, G): return D + (A - D) / ((1 + (x / C)**B)**G)
             def gompertz(x, a, b, c): return a * np.exp(-b * np.exp(-c * x))
+def exponential(x, a, b): return a * np.exp(b * x)
 
             models = {
                 "Linear": linear,
@@ -118,12 +125,13 @@ if uploaded_file is not None:
             legend_toggle = st.checkbox("Show legend", value=True)
 
             for sample in selected_samples:
-                group = df[df[sample_column] == sample].sort_values(x_column)
+                                    group = df[df[sample_column] == sample].sort_values(x_column)
                 x_data = group[x_column].values
                 y_data = group[y_column].values
+        y_data_raw = y_data.copy()
 
                 if transform_option == "Baseline subtraction":
-                    y_data = y_data - y_data[0]
+            y_data = y_data - y_data[0]
                 elif transform_option == "Log transform":
                     y_data = np.log1p(y_data)
                 elif transform_option == "Delta from initial":
@@ -135,8 +143,11 @@ if uploaded_file is not None:
                 elif transform_option == "Min-Max normalization (0–1, sample-wise)":
                     y_data = (y_data - np.min(y_data)) / (np.max(y_data) - np.min(y_data)) if np.max(y_data) != np.min(y_data) else y_data
 
-                model_type = sample_models[sample]
-                model_func = models[model_type]
+                if not fit_transformed:
+            y_data = y_data_raw
+
+        model_type = sample_models[sample]
+        model_func = models[model_type]
 
                 try:
                     popt, pcov = curve_fit(model_func, x_data, y_data, maxfev=10000)
@@ -201,56 +212,56 @@ if uploaded_file is not None:
             ax.set_title("Fitted Curves and Threshold")
 
             with st.expander("Raw + Fitted Curve + CI + TT", expanded=False):
-                for sample in selected_samples:
-                    fig_single, ax_single = plt.subplots(figsize=(7, 4))
-                    group = df[df[sample_column] == sample].sort_values(x_column)
-                    x_data = group[x_column].values
-                    y_data = group[y_column].values
+    for sample in selected_samples:
+        fig_single, ax_single = plt.subplots(figsize=(7, 4))
+        group = df[df[sample_column] == sample].sort_values(x_column)
+        x_data = group[x_column].values
+        y_data = group[y_column].values
 
-                    if transform_option == "Baseline subtraction":
-                        y_data = y_data - y_data[0]
-                    elif transform_option == "Log transform":
-                        y_data = np.log1p(y_data)
-                    elif transform_option == "Delta from initial":
-                        y_data = y_data - y_data[0]
-                    elif transform_option == "Z-score normalization":
-                        y_data = (y_data - np.mean(y_data)) / np.std(y_data) if np.std(y_data) != 0 else y_data
-                    elif transform_option == "I/I₀ normalization":
-                        y_data = y_data / np.max(y_data) if np.max(y_data) != 0 else y_data
-                    elif transform_option == "Min-Max normalization (0–1, sample-wise)":
-                        y_data = (y_data - np.min(y_data)) / (np.max(y_data) - np.min(y_data)) if np.max(y_data) != np.min(y_data) else y_data
+        if transform_option == "Baseline subtraction":
+            y_data = y_data - y_data[0]
+        elif transform_option == "Log transform":
+            y_data = np.log1p(y_data)
+        elif transform_option == "Delta from initial":
+            y_data = y_data - y_data[0]
+        elif transform_option == "Z-score normalization":
+            y_data = (y_data - np.mean(y_data)) / np.std(y_data) if np.std(y_data) != 0 else y_data
+        elif transform_option == "I/I₀ normalization":
+            y_data = y_data / np.max(y_data) if np.max(y_data) != 0 else y_data
+        elif transform_option == "Min-Max normalization (0–1, sample-wise)":
+            y_data = (y_data - np.min(y_data)) / (np.max(y_data) - np.min(y_data)) if np.max(y_data) != np.min(y_data) else y_data
 
-                    model_type = sample_models[sample]
-                    model_func = models[model_type]
-                    try:
-                        popt, pcov = curve_fit(model_func, x_data, y_data, maxfev=10000)
-                        fit_func = lambda x: model_func(x, *popt)
-                        y_fit = fit_func(x_range)
-                        ci = 1.96 * np.sqrt(np.diag(pcov)) if pcov.size else np.zeros_like(x_range)
-                        upper = y_fit + ci[0] if len(ci) > 0 else y_fit
-                        lower = y_fit - ci[0] if len(ci) > 0 else y_fit
-                        ax_single.plot(x_data, y_data, 'o', label='Raw Data')
-                        ax_single.plot(x_range, y_fit, '-', color='green', label='Fitted Curve')
-                        ax_single.fill_between(x_range, lower, upper, color='green', alpha=0.2, label='95% CI')
+        model_type = sample_models[sample]
+        model_func = models[model_type]
+        try:
+            popt, pcov = curve_fit(model_func, x_data, y_data, maxfev=10000)
+            fit_func = lambda x: model_func(x, *popt)
+            y_fit = fit_func(x_range)
+            ci = 1.96 * np.sqrt(np.diag(pcov)) if pcov.size else np.zeros_like(x_range)
+            upper = y_fit + ci[0] if len(ci) > 0 else y_fit
+            lower = y_fit - ci[0] if len(ci) > 0 else y_fit
+            ax_single.plot(x_data, y_data, 'o', label='Raw Data')
+            ax_single.plot(x_range, y_fit, '-', color='green', label='Fitted Curve')
+            ax_single.fill_between(x_range, lower, upper, color='green', alpha=0.2, label='95% CI')
 
-                        root = root_scalar(lambda x: fit_func(x) - threshold_value, bracket=[min(x_data), max(x_data)])
-                        if root.converged:
-                            tt_val = round(root.root, 4)
-                            deriv = (fit_func(root.root + 1e-5) - fit_func(root.root - 1e-5)) / (2e-5)
-                            tt_var = (deriv ** -2) * np.sum(np.diag(pcov)) if pcov.size else 0
-                            tt_stderr = round(np.sqrt(tt_var), 4) if tt_var > 0 else 'N/A'
-                            ax_single.axvline(tt_val, linestyle='--', color='red', label=f'TT = {tt_val} ± {tt_stderr}')
-                        ax_single.axhline(threshold_value, color='gray', linestyle='--', label='Threshold')
+            root = root_scalar(lambda x: fit_func(x) - threshold_value, bracket=[min(x_data), max(x_data)])
+            if root.converged:
+                tt_val = round(root.root, 4)
+                deriv = (fit_func(root.root + 1e-5) - fit_func(root.root - 1e-5)) / (2e-5)
+                tt_var = (deriv ** -2) * np.sum(np.diag(pcov)) if pcov.size else 0
+                tt_stderr = round(np.sqrt(tt_var), 4) if tt_var > 0 else 'N/A'
+                ax_single.axvline(tt_val, linestyle='--', color='red', label=f'TT = {tt_val} ± {tt_stderr}')
+            ax_single.axhline(threshold_value, color='gray', linestyle='--', label='Threshold')
 
-                    except:
-                        ax_single.plot(x_data, y_data, 'o', label='Raw Data')
-                        ax_single.text(0.5, 0.5, 'Fit Error', ha='center')
+        except:
+            ax_single.plot(x_data, y_data, 'o', label='Raw Data')
+            ax_single.text(0.5, 0.5, 'Fit Error', ha='center')
 
-                    ax_single.set_title(f"{sample}: Raw + Fit + CI + TT")
-                    ax_single.set_xlabel(x_column)
-                    ax_single.set_ylabel(y_column)
-                    ax_single.legend()
-                    st.pyplot(fig_single)
+        ax_single.set_title(f"{sample}: Raw + Fit + CI + TT")
+        ax_single.set_xlabel(x_column)
+        ax_single.set_ylabel(y_column)
+        ax_single.legend()
+        st.pyplot(fig_single)
             if legend_toggle:
                 ax.legend(
                     bbox_to_anchor=(1.05, 1),
