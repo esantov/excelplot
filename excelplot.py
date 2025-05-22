@@ -201,24 +201,24 @@ if uploaded_file is not None:
             ax.set_title("Fitted Curves and Threshold")
 
             with st.expander("Raw + Fitted Curve + CI + TT", expanded=False):
-                    for sample in selected_samples:
-                        fig_single, ax_single = plt.subplots(figsize=(7, 4))
-                        group = df[df[sample_column] == sample].sort_values(x_column)
-                        x_data = group[x_column].values
-                        y_data = group[y_column].values
+            for sample in selected_samples:
+                fig_single, ax_single = plt.subplots(figsize=(7, 4))
+                group = df[df[sample_column] == sample].sort_values(x_column)
+                x_data = group[x_column].values
+                y_data = group[y_column].values
 
-            if transform_option == "Baseline subtraction":
-                y_data = y_data - y_data[0]
-            elif transform_option == "Log transform":
-                y_data = np.log1p(y_data)
-            elif transform_option == "Delta from initial":
-                y_data = y_data - y_data[0]
-            elif transform_option == "Z-score normalization":
-                y_data = (y_data - np.mean(y_data)) / np.std(y_data) if np.std(y_data) != 0 else y_data
-            elif transform_option == "I/I₀ normalization":
-                y_data = y_data / np.max(y_data) if np.max(y_data) != 0 else y_data
-            elif transform_option == "Min-Max normalization (0–1, sample-wise)":
-                y_data = (y_data - np.min(y_data)) / (np.max(y_data) - np.min(y_data)) if np.max(y_data) != np.min(y_data) else y_data
+                if transform_option == "Baseline subtraction":
+                    y_data = y_data - y_data[0]
+                elif transform_option == "Log transform":
+                    y_data = np.log1p(y_data)
+                elif transform_option == "Delta from initial":
+                    y_data = y_data - y_data[0]
+                elif transform_option == "Z-score normalization":
+                    y_data = (y_data - np.mean(y_data)) / np.std(y_data) if np.std(y_data) != 0 else y_data
+                elif transform_option == "I/I₀ normalization":
+                    y_data = y_data / np.max(y_data) if np.max(y_data) != 0 else y_data
+                elif transform_option == "Min-Max normalization (0–1, sample-wise)":
+                    y_data = (y_data - np.min(y_data)) / (np.max(y_data) - np.min(y_data)) if np.max(y_data) != np.min(y_data) else y_data
 
                 model_type = sample_models[sample]
                 model_func = models[model_type]
