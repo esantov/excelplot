@@ -200,7 +200,7 @@ if uploaded_file is not None:
             ax.set_ylabel(y_column)
             ax.set_title("Fitted Curves and Threshold")
 
-            with st.expander("Raw + Fitted Curve + CI + TT", expanded=False):
+    with st.expander("Raw + Fitted Curve + CI + TT", expanded=False):
     for sample in selected_samples:
         fig_single, ax_single = plt.subplots(figsize=(7, 4))
                 group = df[df[sample_column] == sample].sort_values(x_column)
