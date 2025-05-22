@@ -95,13 +95,17 @@ fit_transformed = st.checkbox("Fit transformed data instead of raw?", value=True
                 model_choices = ["Linear", "Sigmoid (Logistic)", "4PL", "5PL", "Gompertz", "Exponential"]
                 default_model = st.selectbox("Set default model for all", model_choices, key="default_model_all")
                 sample_models = {
-    "Linear": linear,
-    "Sigmoid (Logistic)": sigmoid,
-    "4PL": four_pl,
-    "5PL": five_pl,
-    "Gompertz": gompertz,
-    "Exponential": exponential
-}", model_choices, index=model_choices.index(default_model), key=f"model_select_{sample}")
+                "Linear": linear,
+                "Sigmoid (Logistic)": sigmoid,
+                "4PL": four_pl,
+                "5PL": five_pl,
+                "Gompertz": gompertz,
+                "Exponential": exponential
+            }",
+                        model_choices,
+                        index=model_choices.index(default_model),
+                        key=f"model_select_{sample}"
+                    )", model_choices, index=model_choices.index(default_model), key=f"model_select_{sample}")
             
 
             def linear(x, a, b): return a * x + b
@@ -109,7 +113,7 @@ fit_transformed = st.checkbox("Fit transformed data instead of raw?", value=True
             def four_pl(x, A, B, C, D): return D + (A - D) / (1 + (x / C)**B)
             def five_pl(x, A, B, C, D, G): return D + (A - D) / ((1 + (x / C)**B)**G)
             def gompertz(x, a, b, c): return a * np.exp(-b * np.exp(-c * x))
-def exponential(x, a, b): return a * np.exp(b * x)
+            def exponential(x, a, b): return a * np.exp(b * x)
 
             models = {
                 "Linear": linear,
