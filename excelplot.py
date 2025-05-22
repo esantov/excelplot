@@ -118,7 +118,7 @@ if uploaded_file is not None:
             legend_toggle = st.checkbox("Show legend", value=True)
 
             for sample in selected_samples:
-                                    group = df[df[sample_column] == sample].sort_values(x_column)
+                group = df[df[sample_column] == sample].sort_values(x_column)
                 x_data = group[x_column].values
                 y_data = group[y_column].values
 
