@@ -180,6 +180,26 @@ def main():
     st.dataframe(pd.DataFrame(params_list))
     st.subheader("Time to Threshold")
     st.dataframe(pd.DataFrame(tt_list, columns=["Sample","TT","TT_SE"]))
+    
+    # -----------------------------
+    # 7. Report Export
+    # -----------------------------
+    if st.button("Export Report to Excel"):
+        report_buf = io.BytesIO()
+        with pd.ExcelWriter(report_buf, engine='xlsxwriter') as writer:
+            # Original and processed data
+            df_orig.to_excel(writer, sheet_name='Original Data', index=False)
+            df.to_excel(writer, sheet_name='Processed Data', index=False)
+            # Fit results
+            pd.DataFrame(params_list).to_excel(writer, sheet_name='Fit Parameters', index=False)
+            pd.DataFrame(tt_list, columns=["Sample","TT","TT_SE"]).to_excel(writer, sheet_name='Time to Threshold', index=False)
+        report_buf.seek(0)
+        st.download_button(
+            label="Download Report",
+            data=report_buf,
+            file_name="Analysis_Report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
 if __name__=='__main__':
     main()
