@@ -6,5 +6,5 @@ scipy
 openpyxl
 Pillow
 xlsxwriter
-plotly
+streamlit-plotly-events
 
