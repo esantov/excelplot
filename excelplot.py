@@ -41,7 +41,7 @@ TRANSFORMS = {
     "Z-score normalization": lambda y: (y - y.mean()) / (y.std() or 1),
     "I/I₀ normalization": lambda y: y / (y.max() or 1),
     "Min-Max normalization (0–1, sample-wise)": lambda y: (y - y.min()) / ((y.max() - y.min()) or 1),
-    # Custom scaling to a fixed range [19,50]
+    # Custom scaling to a fixed range [19,50] per sample group: each sample's min→19 and max→50
     "Scale to [19-50]": lambda y: ((y - y.min()) / ((y.max() - y.min()) or 1)) * (50 - 19) + 19
 }
 
