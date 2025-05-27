@@ -36,7 +36,8 @@ def load_excel_sheets(file) -> dict:
 # -----------------------------
 # Helper: if the second point exceeds the first, set the first equal to the second
 def fix_initial_baseline(y: pd.Series) -> pd.Series:
-    if len(y) > 1 and y.iloc[1] > y.iloc[0]:
+    """If the first point exceeds the second, set the first equal to the second."""
+    if len(y) > 1 and y.iloc[0] > y.iloc[1]:
         y.iloc[0] = y.iloc[1]
     return y
 
