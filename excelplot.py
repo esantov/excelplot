@@ -149,15 +149,16 @@ def main():
 
     threshold = st.sidebar.number_input("Threshold", value=1.0)
 
-    # interactive plot
+        # interactive plot
     sel_pts = plot_interactive(df, df_orig, x_col, y_col, sample_col, transforms, threshold)
     if sel_pts and st.button("Remove Selected Points"):
         drop_idx = [pt['customdata'][0] for pt in sel_pts]
         st.session_state.df_int = df_orig.drop(index=drop_idx)
         st.experimental_rerun()
 
-        # -----------------------------
+    # -----------------------------
     # Manual Table Editing (with version check)
+    # -----------------------------
     st.subheader("Data Table (Editable)")
     # Use st.data_editor if available, else fallback to st.experimental_data_editor
     if hasattr(st, 'data_editor'):
@@ -169,8 +170,11 @@ def main():
         edited_df = df.copy()
     if st.button("Apply Table Edits"):
         # User may remove or modify rows; update session state
-        st.session_state.df_int = edited_df
+        st.session_state.df_int = edited_df.copy()
         st.experimental_rerun()
+
+    # After edits, override df for subsequent calculations
+    df = edited_df.copy()
 
     # fitting
     st.header("Model Fitting Results")
@@ -205,9 +209,12 @@ def main():
     if st.button("Export Report to Excel"):
         report_buf = io.BytesIO()
         with pd.ExcelWriter(report_buf, engine='xlsxwriter') as writer:
-            # Original and processed data
+            # Original data
             df_orig.to_excel(writer, sheet_name='Original Data', index=False)
-            df.to_excel(writer, sheet_name='Processed Data', index=False)
+            # Edited data (full sheet after manual edits)
+            st.session_state.df_int.to_excel(writer, sheet_name='Edited Data', index=False)
+            # Processed data (filtered & transformed)
+            df.to_excel(writer, sheet_name='Processed Data', index=False)(writer, sheet_name='Processed Data', index=False)
             # Fit results
             pd.DataFrame(params_list).to_excel(writer, sheet_name='Fit Parameters', index=False)
             pd.DataFrame(tt_list, columns=["Sample","TT","TT_SE"]).to_excel(writer, sheet_name='Time to Threshold', index=False)
