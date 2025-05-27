@@ -119,13 +119,22 @@ def fit_and_evaluate(x, y, model_name, threshold):
 def plot_interactive(current_df, original_df, x_col, y_col, sample_col, transforms, threshold):
     fig = go.Figure()
     fig.update_layout(title='Interactive Data Plot', legend={'itemclick':'toggle'}, dragmode='lasso')
+    # handle Remove T0 transform
+    remove_t0 = "Remove T0" in transforms
+    real_transforms = [t for t in transforms if t != "Remove T0"]
+    # backdrop original data
     for sample in original_df[sample_col].dropna().unique():
         grp0 = original_df[original_df[sample_col]==sample].sort_values(x_col)
         fig.add_trace(go.Scatter(x=grp0[x_col], y=grp0[y_col], mode='markers',
                                  marker=dict(color='lightgrey'), showlegend=False))
+    # current data
     for sample in current_df[sample_col].unique():
         grp = current_df[current_df[sample_col]==sample].sort_values(x_col)
-        y_trans = apply_transforms(grp, transforms, y_col, sample_col)
+        if remove_t0 and len(grp) > 1:
+            grp = grp.iloc[1:]
+        # apply transformations
+        y_trans = apply_transforms(grp, real_transforms, y_col, sample_col)
+        # plot raw and transformed
         fig.add_trace(go.Scatter(x=grp[x_col], y=grp[y_col], mode='markers',
                                  name=f"{sample} raw", customdata=np.stack([grp.index, np.repeat(sample,len(grp))],axis=1)))
         fig.add_trace(go.Scatter(x=grp[x_col], y=y_trans, mode='lines',
@@ -164,8 +173,11 @@ def main():
     x_col = st.sidebar.selectbox("X axis", num_cols)
     y_col = st.sidebar.selectbox("Y axis", num_cols)
 
-    transform_opts = list(TRANSFORMS.keys())
+    transform_opts = list(TRANSFORMS.keys()) + ["Remove T0"]
     transforms = st.sidebar.multiselect("Transform sequence", transform_opts, default=["None"])
+    remove_t0 = "Remove T0" in transforms
+    # Clean transforms list for apply_transforms
+    real_transforms = [t for t in transforms if t != "Remove T0"]
     threshold = st.sidebar.number_input("Threshold", value=1.0)
 
     sel_pts = plot_interactive(df, df_orig, x_col, y_col, sample_col, transforms, threshold)
@@ -193,8 +205,11 @@ def main():
     x_lin = np.linspace(df[x_col].min(), df[x_col].max(), 200)
     for sample in df[sample_col].unique():
         grp = df[df[sample_col]==sample].sort_values(x_col)
+        # apply Remove T0 if selected
+        if remove_t0 and len(grp) > 1:
+            grp = grp.iloc[1:]
         x_vals = grp[x_col].values
-        y_vals = apply_transforms(grp, transforms, y_col, sample_col).values
+        y_vals = apply_transforms(grp, real_transforms, y_col, sample_col).values
         model = st.sidebar.selectbox(f"Model for {sample}", list(MODELS.keys()))
         try:
             popt, y_fit, r2, rmse, tt, tt_se = fit_and_evaluate(x_vals, y_vals, model, threshold)
