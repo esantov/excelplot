@@ -156,11 +156,17 @@ def main():
         st.session_state.df_int = df_orig.drop(index=drop_idx)
         st.experimental_rerun()
 
-    # -----------------------------
-    # Manual Table Editing
-    # -----------------------------
+        # -----------------------------
+    # Manual Table Editing (with version check)
     st.subheader("Data Table (Editable)")
-    edited_df = st.experimental_data_editor(df, num_rows="dynamic", use_container_width=True)
+    # Use st.data_editor if available, else fallback to st.experimental_data_editor
+    if hasattr(st, 'data_editor'):
+        edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True)
+    elif hasattr(st, 'experimental_data_editor'):
+        edited_df = st.experimental_data_editor(df, num_rows="dynamic", use_container_width=True)
+    else:
+        st.warning("Your Streamlit version does not support table editing. Update to v1.18+ for data_editor.")
+        edited_df = df.copy()
     if st.button("Apply Table Edits"):
         # User may remove or modify rows; update session state
         st.session_state.df_int = edited_df
