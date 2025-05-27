@@ -39,20 +39,59 @@ TRANSFORMS = {
     "Log transform": lambda y: np.log1p(y),
     "Delta from initial": lambda y: y - y.iloc[0],
     "Z-score normalization": lambda y: (y - y.mean()) / (y.std() or 1),
-    "I/I₀ normalization": lambda y: y / (y.iloc[0] or 1),  # divide by initial value per sample
+    "I/I₀ normalization": lambda y: y / (y.iloc[0] or 1)  # divide by initial value per sample,
     "Min-Max normalization (0–1, sample-wise)": lambda y: (y - y.min()) / ((y.max() - y.min()) or 1),
     # Custom scaling to a fixed range [18,55] per sample group: each sample's min→18 and max→55
     "Scale to [18-55]": lambda y: ((y - y.min()) / ((y.max() - y.min()) or 1)) * (55 - 18) + 18
 }
 
-# Apply one or more transforms in sequence
-def apply_transforms(series: pd.Series, transforms: list) -> pd.Series:
-    y = series.copy()
+# -----------------------------
+# 2. Transform Definitions
+# -----------------------------
+TRANSFORMS = {
+    "None": lambda y: y,
+    "Baseline subtraction": lambda y: y - y.iloc[0],
+    "Log transform": lambda y: np.log1p(y),
+    "Delta from initial": lambda y: y - y.iloc[0],
+    "Z-score normalization": lambda y: (y - y.mean()) / (y.std() or 1),
+    "I/I₀ normalization": lambda y: y / (y.iloc[0] or 1),
+    "Min-Max normalization (0–1, sample-wise)": lambda y: (y - y.min()) / ((y.max() - y.min()) or 1),
+    "Scale to [18-55]": lambda y: ((y - y.min()) / ((y.max() - y.min()) or 1)) * (55 - 18) + 18,
+    # Placeholder for uniform asymptote; actual function applied in apply_transforms
+    "Uniform Asymptotes (0–1)": None,
+    "Uniform Asymptotes (19–50)": None
+}
+
+# -----------------------------
+# 3. Helper: uniform asymptotes per sample
+# -----------------------------
+def uniform_asymptote(series: pd.Series, sample: str, out_range=(0,1)) -> pd.Series:
+    """Rescale series so its fitted asymptotes D->min(out_range), A->max(out_range)."""
+    # get (A,D) from asymptotes dict
+    A, D = asymptotes.get(sample, (series.max(), series.min()))
+    # normalize to 0–1
+    y0 = (series - D) / ((A - D) or 1)
+    # scale to out_range
+    return y0 * (out_range[1] - out_range[0]) + out_range[0]
+
+# -----------------------------
+# 4. Apply one or more transforms in sequence
+# -----------------------------
+def apply_transforms(df_group: pd.DataFrame, transforms: list, y_col: str, sample_col: str) -> pd.Series:
+    y = df_group[y_col].copy()
+    sample = df_group[sample_col].iloc[0]
     for t in transforms:
-        func = TRANSFORMS.get(t, TRANSFORMS["None"])
-        y = func(y)
+        if t == "Uniform Asymptotes (0–1)":
+            y = uniform_asymptote(y, sample, (0,1))
+        elif t == "Uniform Asymptotes (19–50)":
+            y = uniform_asymptote(y, sample, (19,50))
+        else:
+            func = TRANSFORMS.get(t, TRANSFORMS["None"])
+            y = func(y)
     return y
 
+# -----------------------------
+# 5. Model Definitions
 # -----------------------------
 # 3. Model Definitions
 # -----------------------------
@@ -98,7 +137,7 @@ def plot_interactive(current_df, original_df, x_col, y_col, sample_col, transfor
     # current raw + transformed
     for sample in current_df[sample_col].unique():
         grp = current_df[current_df[sample_col]==sample].sort_values(x_col)
-        y_trans = apply_transforms(grp[y_col], transforms)
+        y_trans = apply_transforms(grp, transforms, y_col, sample_col)
         fig.add_trace(go.Scatter(x=grp[x_col], y=grp[y_col], mode='markers',
                                  name=f"{sample} raw", customdata=np.stack([grp.index, np.repeat(sample,len(grp))],axis=1)))
         fig.add_trace(go.Scatter(x=grp[x_col], y=y_trans, mode='lines',
@@ -177,18 +216,25 @@ def main():
     df = edited_df.copy()
 
     # fitting
-    st.header("Model Fitting Results")
-    params_list, tt_list = [], []
+    # Prepare to collect asymptotes for each sample
+    asymptotes = {}
+    params_list, tt_list = [], []], []
     fig_fit = go.Figure()
     fig_fit.update_layout(title='Model Fitting Plot')
     x_lin = np.linspace(df[x_col].min(), df[x_col].max(), 200)
     for sample in df[sample_col].unique():
         grp = df[df[sample_col]==sample].sort_values(x_col)
         x_vals = grp[x_col].values
-        y_vals = apply_transforms(grp[y_col], transforms).values
+        y_vals = apply_transforms(grp, transforms, y_col, sample_col).values.values
         model = st.sidebar.selectbox(f"Model for {sample}", list(MODELS.keys()))
         try:
             popt, y_fit, r2, rmse, tt, tt_se = fit_and_evaluate(x_vals, y_vals, model, threshold)
+            # record asymptotes A (upper) and D (lower)
+            if model in ("4PL","5PL"):
+                A, D = popt[0], popt[3]
+            else:
+                D, A = y_fit.min(), y_fit.max()
+            asymptotes[sample] = (A, D)
             fig_fit.add_trace(go.Scatter(x=x_vals, y=y_vals, mode='markers', name=f"{sample} data"))
             fig_fit.add_trace(go.Scatter(x=x_lin, y=MODELS[model][0](x_lin,*popt), mode='lines', name=f"{sample} fit"))
             params_list.append({"Sample":sample, "Model":model, "R2":round(r2,4), "RMSE":round(rmse,4)})
