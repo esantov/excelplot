@@ -87,6 +87,7 @@ def fit_and_evaluate(x, y, model_name, threshold):
 # -----------------------------
 def plot_interactive(current_df, original_df, x_col, y_col, sample_col, transforms, threshold):
     fig = go.Figure()
+    fig.update_layout(title='Interactive Data Plot', legend={'itemclick':'toggle'}, dragmode='lasso')
     # original backdrop
     for sample in original_df[sample_col].dropna().unique():
         grp0 = original_df[original_df[sample_col]==sample].sort_values(x_col)
@@ -157,6 +158,7 @@ def main():
     st.header("Model Fitting Results")
     params_list, tt_list = [], []
     fig_fit = go.Figure()
+    fig_fit.update_layout(title='Model Fitting Plot')
     x_lin = np.linspace(df[x_col].min(), df[x_col].max(), 200)
     for sample in df[sample_col].unique():
         grp = df[df[sample_col]==sample].sort_values(x_col)
