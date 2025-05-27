@@ -225,7 +225,7 @@ def main():
     for sample in df[sample_col].unique():
         grp = df[df[sample_col]==sample].sort_values(x_col)
         x_vals = grp[x_col].values
-        y_vals = apply_transforms(grp, transforms, y_col, sample_col).values.values
+        y_vals = apply_transforms(grp, transforms, y_col, sample_col).values
         model = st.sidebar.selectbox(f"Model for {sample}", list(MODELS.keys()))
         try:
             popt, y_fit, r2, rmse, tt, tt_se = fit_and_evaluate(x_vals, y_vals, model, threshold)
