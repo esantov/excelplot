@@ -156,6 +156,16 @@ def main():
         st.session_state.df_int = df_orig.drop(index=drop_idx)
         st.experimental_rerun()
 
+    # -----------------------------
+    # Manual Table Editing
+    # -----------------------------
+    st.subheader("Data Table (Editable)")
+    edited_df = st.experimental_data_editor(df, num_rows="dynamic", use_container_width=True)
+    if st.button("Apply Table Edits"):
+        # User may remove or modify rows; update session state
+        st.session_state.df_int = edited_df
+        st.experimental_rerun()
+
     # fitting
     st.header("Model Fitting Results")
     params_list, tt_list = [], []
