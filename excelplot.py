@@ -218,7 +218,7 @@ def main():
     # fitting
     # Prepare to collect asymptotes for each sample
     asymptotes = {}
-    params_list, tt_list = [], []], []
+    params_list, tt_list = [], []
     fig_fit = go.Figure()
     fig_fit.update_layout(title='Model Fitting Plot')
     x_lin = np.linspace(df[x_col].min(), df[x_col].max(), 200)
@@ -260,7 +260,7 @@ def main():
             # Edited data (full sheet after manual edits)
             st.session_state.df_int.to_excel(writer, sheet_name='Edited Data', index=False)
             # Processed data (filtered & transformed)
-            df.to_excel(writer, sheet_name='Processed Data', index=False)(writer, sheet_name='Processed Data', index=False)
+            df.to_excel(writer, sheet_name='Processed Data', index=False)
             # Fit results
             pd.DataFrame(params_list).to_excel(writer, sheet_name='Fit Parameters', index=False)
             pd.DataFrame(tt_list, columns=["Sample","TT","TT_SE"]).to_excel(writer, sheet_name='Time to Threshold', index=False)
