@@ -1,4 +1,5 @@
-# Refactored Streamlit Analysis App with Interactive Plotting and Model Fitting
+# Refactored Streamlit Analysis App with Sequential Transformations, Interactive Plotting, and Model Fitting
+# - Supports multiple sequential transformations
 # - Plotly for interactive removal of datasets and points
 # - Background original data in light grey
 # - Modular functions, caching, and session state
@@ -25,6 +26,10 @@ except ImportError:
 def load_excel_sheets(file) -> dict:
     return pd.read_excel(file, sheet_name=None)
 
+# Initialize session state for edited data
+if 'df_int' not in st.session_state:
+    st.session_state.df_int = None
+
 # -----------------------------
 # 2. Transform Definitions
 # -----------------------------
@@ -38,6 +43,14 @@ TRANSFORMS = {
     "Min-Max normalization (0–1, sample-wise)": lambda y: (y - y.min()) / ((y.max() - y.min()) or 1)
 }
 
+# Apply one or more transforms in sequence
+def apply_transforms(series: pd.Series, transforms: list) -> pd.Series:
+    y = series.copy()
+    for t in transforms:
+        func = TRANSFORMS.get(t, TRANSFORMS["None"])
+        y = func(y)
+    return y
+
 # -----------------------------
 # 3. Model Definitions
 # -----------------------------
@@ -50,14 +63,7 @@ MODELS = {
 }
 
 # -----------------------------
-# 4. Data Transformation
-# -----------------------------
-def transform_df(df: pd.DataFrame, y_col: str, transform: str) -> pd.Series:
-    func = TRANSFORMS.get(transform, TRANSFORMS["None"])
-    return func(df[y_col])
-
-# -----------------------------
-# 5. Model Fitting
+# 4. Model Fitting
 # -----------------------------
 def fit_and_evaluate(x, y, model_name, threshold):
     func, _ = MODELS[model_name]
@@ -77,20 +83,21 @@ def fit_and_evaluate(x, y, model_name, threshold):
     return popt, y_fit, r2, rmse, tt, tt_se
 
 # -----------------------------
-# 6. Interactive Plot Helper
+# 5. Interactive Plot Helper
 # -----------------------------
-def plot_interactive(current_df, original_df, x_col, y_col, sample_col, transform, threshold):
+def plot_interactive(current_df, original_df, x_col, y_col, sample_col, transforms, threshold):
     fig = go.Figure()
+    # original backdrop
     for sample in original_df[sample_col].dropna().unique():
         grp0 = original_df[original_df[sample_col]==sample].sort_values(x_col)
         fig.add_trace(go.Scatter(x=grp0[x_col], y=grp0[y_col], mode='markers',
                                  marker=dict(color='lightgrey'), showlegend=False))
+    # current raw + transformed
     for sample in current_df[sample_col].unique():
         grp = current_df[current_df[sample_col]==sample].sort_values(x_col)
-        y_trans = transform_df(grp, y_col, transform)
+        y_trans = apply_transforms(grp[y_col], transforms)
         fig.add_trace(go.Scatter(x=grp[x_col], y=grp[y_col], mode='markers',
-                                 name=f"{sample} raw",
-                                 customdata=np.stack([grp.index, np.repeat(sample,len(grp))],axis=1)))
+                                 name=f"{sample} raw", customdata=np.stack([grp.index, np.repeat(sample,len(grp))],axis=1)))
         fig.add_trace(go.Scatter(x=grp[x_col], y=y_trans, mode='lines',
                                  name=f"{sample} trans", line=dict(dash='dash')))
     fig.add_hline(y=threshold, line_dash='dot', annotation_text='Threshold')
@@ -104,7 +111,7 @@ def plot_interactive(current_df, original_df, x_col, y_col, sample_col, transfor
     return selected
 
 # -----------------------------
-# 7. Main App
+# 6. Main App
 # -----------------------------
 def main():
     st.sidebar.title("Upload & Settings")
@@ -115,10 +122,12 @@ def main():
     sheets = load_excel_sheets(uploaded)
     sheet = st.sidebar.selectbox("Sheet", list(sheets.keys()))
     df_orig = sheets[sheet]
-    if 'df_int' not in st.session_state:
+    if st.session_state.df_int is None:
         st.session_state.df_int = df_orig.copy()
     df = st.session_state.df_int
     st.dataframe(df.head())
+
+    # selectors
     sample_col = st.sidebar.selectbox("Sample ID col", df.columns)
     samples = df[sample_col].dropna().unique()
     sel = st.sidebar.multiselect("Samples", samples, default=list(samples))
@@ -130,27 +139,33 @@ def main():
         return
     x_col = st.sidebar.selectbox("X axis", num_cols)
     y_col = st.sidebar.selectbox("Y axis", num_cols)
-    transform = st.sidebar.selectbox("Transform", list(TRANSFORMS.keys()))
+
+    # allow multiple transforms
+    transform_opts = list(TRANSFORMS.keys())
+    transforms = st.sidebar.multiselect("Transform sequence", transform_opts, default=["None"])
+
     threshold = st.sidebar.number_input("Threshold", value=1.0)
-    # Interactive data plot
-    sel_pts = plot_interactive(df, df_orig, x_col, y_col, sample_col, transform, threshold)
+
+    # interactive plot
+    sel_pts = plot_interactive(df, df_orig, x_col, y_col, sample_col, transforms, threshold)
     if sel_pts and st.button("Remove Selected Points"):
         drop_idx = [pt['customdata'][0] for pt in sel_pts]
         st.session_state.df_int = df_orig.drop(index=drop_idx)
         st.experimental_rerun()
 
-    # Fitting & results
+    # fitting
     st.header("Model Fitting Results")
     params_list, tt_list = [], []
     fig_fit = go.Figure()
     x_lin = np.linspace(df[x_col].min(), df[x_col].max(), 200)
     for sample in df[sample_col].unique():
         grp = df[df[sample_col]==sample].sort_values(x_col)
-        x, y = grp[x_col].values, transform_df(grp, y_col, transform).values
+        x_vals = grp[x_col].values
+        y_vals = apply_transforms(grp[y_col], transforms).values
         model = st.sidebar.selectbox(f"Model for {sample}", list(MODELS.keys()))
         try:
-            popt, y_fit, r2, rmse, tt, tt_se = fit_and_evaluate(x, y, model, threshold)
-            fig_fit.add_trace(go.Scatter(x=x, y=y, mode='markers', name=f"{sample} data"))
+            popt, y_fit, r2, rmse, tt, tt_se = fit_and_evaluate(x_vals, y_vals, model, threshold)
+            fig_fit.add_trace(go.Scatter(x=x_vals, y=y_vals, mode='markers', name=f"{sample} data"))
             fig_fit.add_trace(go.Scatter(x=x_lin, y=MODELS[model][0](x_lin,*popt), mode='lines', name=f"{sample} fit"))
             params_list.append({"Sample":sample, "Model":model, "R2":round(r2,4), "RMSE":round(rmse,4)})
             tt_list.append((sample, tt, tt_se))
@@ -158,6 +173,7 @@ def main():
             st.warning(f"Fit error {sample}: {e}")
     fig_fit.add_hline(y=threshold, line_dash='dash')
     st.plotly_chart(fig_fit, use_container_width=True)
+
     st.subheader("Fit Parameters")
     st.dataframe(pd.DataFrame(params_list))
     st.subheader("Time to Threshold")
