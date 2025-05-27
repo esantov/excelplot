@@ -40,7 +40,9 @@ TRANSFORMS = {
     "Delta from initial": lambda y: y - y.iloc[0],
     "Z-score normalization": lambda y: (y - y.mean()) / (y.std() or 1),
     "I/I₀ normalization": lambda y: y / (y.max() or 1),
-    "Min-Max normalization (0–1, sample-wise)": lambda y: (y - y.min()) / ((y.max() - y.min()) or 1)
+    "Min-Max normalization (0–1, sample-wise)": lambda y: (y - y.min()) / ((y.max() - y.min()) or 1),
+    # Custom scaling to a fixed range [19,50]
+    "Scale to [19-50]": lambda y: ((y - y.min()) / ((y.max() - y.min()) or 1)) * (50 - 19) + 19
 }
 
 # Apply one or more transforms in sequence
