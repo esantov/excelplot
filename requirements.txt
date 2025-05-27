@@ -6,4 +6,5 @@ scipy
 openpyxl
 Pillow
 xlsxwriter
-plotly.graph_objects
+plotly
+
