@@ -56,6 +56,88 @@ TRANSFORMS = {
     "Uniform Asymptotes (0–1)": None,     # placeholder
     "Uniform Asymptotes (18–55)": None    # placeholder
 }
+# -----------------------------
+# 3. Asymptote Helper
+# -----------------------------
+def uniform_asymptote(series: pd.Series, sample: str, out_range=(0,1)) -> pd.Series:
+    """Rescale series so its fitted asymptotes D->min(out_range), A->max(out_range)."""
+    A, D = asymptotes.get(sample, (series.max(), series.min()))
+    y0 = (series - D) / ((A - D) or 1)
+    return y0 * (out_range[1] - out_range[0]) + out_range[0]
+# Assign uniform transform lambdas now that helper exists
+TRANSFORMS["Uniform Asymptotes (0–1)"] = lambda y, sample=None: uniform_asymptote(y, sample, (0,1))
+TRANSFORMS["Uniform Asymptotes (18–55)"] = lambda y, sample=None: uniform_asymptote(y, sample, (18,55))
+
+# -----------------------------
+# 4. Sequential Transform Application
+# -----------------------------
+def apply_transforms(df_group: pd.DataFrame, transforms: list, y_col: str, sample_col: str) -> pd.Series:
+    y = df_group[y_col].copy()
+    sample = df_group[sample_col].iloc[0]
+    for t in transforms:
+        func = TRANSFORMS.get(t, TRANSFORMS["None"])
+        try:
+            y = func(y, sample)
+        except TypeError:
+            y = func(y)
+    return y
+
+# -----------------------------
+# 5. Model Definitions
+# -----------------------------
+MODELS = {
+    "Linear":  (lambda x, a, b: a * x + b,      [1, 0]),
+    "Sigmoid": (lambda x, a, b: 1/(1+np.exp(-(x-a)/b)), [np.median, 1]),
+    "4PL":     (lambda x, A, B, C, D: D + (A-D)/(1+(x/C)**B), [1,1,1,0]),
+    "5PL":     (lambda x, A, B, C, D, G: D + (A-D)/((1+(x/C)**B)**G), [1,1,1,0,1]),
+    "Gompertz":(lambda x, a, b, c: a * np.exp(-b * np.exp(-c*x)), [1,1,1])
+}
+
+# -----------------------------
+# 6. Model Fitting
+# -----------------------------
+def fit_and_evaluate(x, y, model_name, threshold):
+    func, _ = MODELS[model_name]
+    popt, pcov = curve_fit(func, x, y, maxfev=10000)
+    y_fit = func(x, *popt)
+    rss = ((y - y_fit)**2).sum(); tss = ((y - y.mean())**2).sum()
+    r2 = 1 - rss/tss if tss else np.nan
+    rmse = np.sqrt(rss/len(y))
+    tt, tt_se = ("N/A","N/A")
+    if y_fit.min() <= threshold <= y_fit.max():
+        root = root_scalar(lambda t: func(t,*popt)-threshold, bracket=[x.min(), x.max()])
+        if root.converged:
+            tt = root.root
+            d = (func(tt+1e-5,*popt)-func(tt-1e-5,*popt))/(2e-5)
+            var = (d**-2) * pcov.sum() if pcov.size else 0
+            tt_se = np.sqrt(var) if var>0 else np.nan
+    return popt, y_fit, r2, rmse, tt, tt_se
+
+# -----------------------------
+# 7. Interactive Plot Helper
+# -----------------------------
+def plot_interactive(current_df, original_df, x_col, y_col, sample_col, transforms, threshold):
+    fig = go.Figure()
+    fig.update_layout(title='Interactive Data Plot', legend={'itemclick':'toggle'}, dragmode='lasso')
+    for sample in original_df[sample_col].dropna().unique():
+        grp0 = original_df[original_df[sample_col]==sample].sort_values(x_col)
+        fig.add_trace(go.Scatter(x=grp0[x_col], y=grp0[y_col], mode='markers',
+                                 marker=dict(color='lightgrey'), showlegend=False))
+    for sample in current_df[sample_col].unique():
+        grp = current_df[current_df[sample_col]==sample].sort_values(x_col)
+        y_trans = apply_transforms(grp, transforms, y_col, sample_col)
+        fig.add_trace(go.Scatter(x=grp[x_col], y=grp[y_col], mode='markers',
+                                 name=f"{sample} raw", customdata=np.stack([grp.index, np.repeat(sample,len(grp))],axis=1)))
+        fig.add_trace(go.Scatter(x=grp[x_col], y=y_trans, mode='lines',
+                                 name=f"{sample} trans", line=dict(dash='dash')))
+    fig.add_hline(y=threshold, line_dash='dot', annotation_text='Threshold')
+    selected = []
+    if plotly_events:
+        selected = plotly_events(fig, select_event=True, click_event=False)
+    st.plotly_chart(fig, use_container_width=True)
+    if not plotly_events:
+        st.info("Install 'streamlit-plotly-events' to enable point selection.")
+    return selected
 def main():
     st.sidebar.title("Upload & Settings")
     uploaded = st.sidebar.file_uploader("Excel file", type=["xls","xlsx"])
