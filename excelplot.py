@@ -34,7 +34,6 @@ def fix_initial_baseline(y: pd.Series) -> pd.Series:
         y.iloc[0] = y.iloc[1]
     return y
 
-
 def uniform_asymptote(y: pd.Series, sample: str, out_range=(0,1)) -> pd.Series:
     A, D = asymptotes.get(sample, (y.max(), y.min()))
     y0 = (y - D) / ((A - D) or 1)
@@ -42,7 +41,6 @@ def uniform_asymptote(y: pd.Series, sample: str, out_range=(0,1)) -> pd.Series:
 
 TRANSFORMS = {
     "None": lambda y: y,
-    "Remove T0": lambda y: y.iloc[1:] if len(y)>1 else y,
     "Fix initial baseline": fix_initial_baseline,
     "Baseline subtraction": lambda y: y - y.iloc[0],
     "Log transform": lambda y: np.log1p(y),
@@ -59,6 +57,14 @@ TRANSFORMS = {
 # -----------------------------
 # 3. Model Definitions
 # -----------------------------
+MODEL_PARAM_NAMES = {
+    "Linear": ["a", "b"],
+    "Sigmoid": ["a", "b"],
+    "4PL": ["A", "B", "C", "D"],
+    "5PL": ["A", "B", "C", "D", "G"],
+    "Gompertz": ["a", "b", "c"]
+}
+
 MODELS = {
     "Linear":      (lambda x,a,b: a*x + b, [1,0]),
     "Sigmoid":     (lambda x,a,b: 1/(1 + np.exp(-(x-a)/b)), [np.median,1]),
@@ -67,6 +73,23 @@ MODELS = {
     "Gompertz":    (lambda x,a,b,c: a * np.exp(-b * np.exp(-c*x)), [1,1,1])
 }
 
+# -----------------------------
+# 4. Transform Application
+# -----------------------------
+def apply_transforms(group_df: pd.DataFrame, transforms: list, y_col: str, sample_col: str) -> pd.Series:
+    y = group_df[y_col].copy()
+    sample = group_df[sample_col].iloc[0]
+    for t in transforms:
+        func = TRANSFORMS[t]
+        try:
+            y = func(y, sample)
+        except TypeError:
+            y = func(y)
+    return y
+
+# -----------------------------
+# 5. Model Fitting Helper
+# -----------------------------
 def fit_and_eval(x: np.ndarray, y: np.ndarray, model_name: str, threshold: float):
     func, _ = MODELS[model_name]
     popt, pcov = curve_fit(func, x, y, maxfev=10000)
@@ -86,22 +109,19 @@ def fit_and_eval(x: np.ndarray, y: np.ndarray, model_name: str, threshold: float
     return popt, pcov, y_fit, r2, rmse, tt, tt_se
 
 # -----------------------------
-# 4. Plotting
+# 6. Interactive Plotting
 # -----------------------------
-
-def plot_interactive(df, df0, x_col, y_col, sample_col, transforms, threshold):
+def plot_interactive(df: pd.DataFrame, df0: pd.DataFrame, x_col: str, y_col: str,
+                     sample_col: str, transforms: list, threshold: float):
     fig = go.Figure(); fig.update_layout(dragmode='lasso')
-    remove_t0 = "Remove T0" in transforms
-    core_trans = [t for t in transforms if t != "Remove T0"]
-    # backdrop
+    core_trans = transforms[:]  # no Remove T0
+    # backdrop original data
     for sample in df0[sample_col].dropna().unique():
         g0 = df0[df0[sample_col]==sample].sort_values(x_col)
         fig.add_trace(go.Scatter(x=g0[x_col], y=g0[y_col], mode='markers', marker_color='lightgrey', showlegend=False))
-    # current
+    # current data and transforms
     for sample in df[sample_col].unique():
         g = df[df[sample_col]==sample].sort_values(x_col)
-        if remove_t0 and len(g)>1:
-            g = g.iloc[1:]
         y_tr = apply_transforms(g, core_trans, y_col, sample_col)
         fig.add_trace(go.Scatter(x=g[x_col], y=g[y_col], mode='markers', name=f"{sample} raw", customdata=g.index))
         fig.add_trace(go.Scatter(x=g[x_col], y=y_tr, mode='lines', name=f"{sample} trans", line_dash='dash'))
@@ -113,22 +133,7 @@ def plot_interactive(df, df0, x_col, y_col, sample_col, transforms, threshold):
     return selected
 
 # -----------------------------
-# 5. Transform Application
-# -----------------------------
-
-def apply_transforms(group_df, transforms, y_col, sample_col):
-    y = group_df[y_col].copy()
-    sample = group_df[sample_col].iloc[0]
-    for t in transforms:
-        func = TRANSFORMS[t]
-        try:
-            y = func(y, sample)
-        except TypeError:
-            y = func(y)
-    return y
-
-# -----------------------------
-# 6. Main App
+# 7. Main App
 # -----------------------------
 def main():
     st.sidebar.title("Settings")
@@ -191,24 +196,28 @@ def main():
 
     for sample in df[sample_col].unique():
         grp = df[df[sample_col]==sample].sort_values(x_col)
-        # apply T0 removal
-        if 'Remove T0' in transforms and len(grp)>1:
-            grp = grp.iloc[1:]
         model = global_model if use_global else st.sidebar.selectbox(f"Model for {sample}", list(MODELS.keys()))
         x_vals = grp[x_col].values
         y_vals = apply_transforms(grp, transforms, y_col, sample_col).values
         try:
             popt, pcov, y_fit_vals, r2, rmse, tt, ttse = fit_and_eval(x_vals, y_vals, model, threshold)
+            # record asymptotes
             if model in ('4PL','5PL'):
                 A, D = popt[0], popt[3]
             else:
                 D, A = y_fit_vals.min(), y_fit_vals.max()
             asymptotes[sample] = (A, D)
+            # plot data and fit
             fig_fit.add_trace(go.Scatter(x=x_vals, y=y_vals, mode='markers', name=f"{sample} data"))
             y_line = MODELS[model][0](x_lin, *popt)
             fig_fit.add_trace(go.Scatter(x=x_lin, y=y_line, mode='lines', name=f"{sample} fit"))
-            params_list.append({"Sample": sample, "Model": model, "R2": round(r2,4), "RMSE": round(rmse,4)})
+            # record parameters
+            param_names = MODEL_PARAM_NAMES[model]
+            param_dict = {name: round(val,4) for name,val in zip(param_names, popt)}
+            param_dict.update({"Sample": sample, "Model": model, "R2": round(r2,4), "RMSE": round(rmse,4)})
+            params_list.append(param_dict)
             tt_list.append((sample, tt, ttse))
+            # collect fit curve data
             fit_df = pd.DataFrame({sample_col: sample, x_col: x_lin, f"{y_col}_fit": y_line})
             fit_data.append(fit_df)
         except Exception as e:
@@ -228,7 +237,6 @@ def main():
     st.dataframe(pd.DataFrame(tt_list, columns=["Sample","TT","TT_SE"]))
 
     if st.button("Export Report"):
-        # Prepare report sheets
         fit_df_all = pd.concat(fit_data, ignore_index=True)
         report_items = [
             ("Original Data", df0),
@@ -240,21 +248,16 @@ def main():
 
         buf = io.BytesIO()
         with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
-            # Write each report item
-            for name, tbl in report_items:
-                safe_name = name[:31]
-                tbl.to_excel(writer, sheet_name=safe_name, index=False)
-            # Write fit params and TT
+            for name,tbl in report_items:
+                tbl.to_excel(writer, sheet_name=name[:31], index=False)
             pd.DataFrame(params_list).to_excel(writer, sheet_name='Fit Parameters', index=False)
             pd.DataFrame(tt_list, columns=["Sample","TT","TT_SE"]).to_excel(writer, sheet_name='Time to Threshold', index=False)
-            # Insert plot image if possible
             try:
                 img_buf = io.BytesIO()
                 fig_fit.write_image(img_buf, format='png')
                 img_buf.seek(0)
-                workbook = writer.book
-                worksheet = workbook.add_worksheet('Fitted Plot')
-                worksheet.insert_image('B2', 'fitted_plot.png', {'image_data': img_buf})
+                ws = writer.book.add_worksheet('Fitted Plot')
+                ws.insert_image('B2', 'fitted_plot.png', {'image_data': img_buf})
             except Exception:
                 pass
         buf.seek(0)
