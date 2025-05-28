@@ -42,7 +42,6 @@ def uniform_asymptote(y: pd.Series, sample: str, out_range=(0,1)) -> pd.Series:
 
 TRANSFORMS = {
     "None": lambda y: y,
-    "Remove T0": lambda y: y.iloc[1:] if len(y)>1 else y,
     "Fix initial baseline": fix_initial_baseline,
     "Baseline subtraction": lambda y: y - y.iloc[0],
     "Log transform": lambda y: np.log1p(y),
