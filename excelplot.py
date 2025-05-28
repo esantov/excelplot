@@ -179,6 +179,10 @@ def main():
     global_model = st.sidebar.selectbox("Fit all samples with", list(MODELS.keys()))
     fit_all = st.sidebar.checkbox("Use global model for all samples", value=False)
 
+    st.sidebar.markdown("### Global Model Fit")
+    global_model = st.sidebar.selectbox("Fit all samples with", list(MODELS.keys()))
+    fit_all = st.sidebar.checkbox("Use global model for all samples", value=False)
+
     # Global Model Override
     st.sidebar.markdown("### Global Model Fit")
     global_model = st.sidebar.selectbox("Fit all samples with", list(MODELS.keys()))
@@ -215,8 +219,3 @@ def main():
     real_transforms = [t for t in transforms if t!="Remove T0"]
     for sample in df[sample_col].unique():
         # choose model per-sample or global override
-        if fit_all:
-            model = global_model
-        else:
-            model = st.sidebar.selectbox(f"Model for {sample}", list(MODELS.keys()))
-            
