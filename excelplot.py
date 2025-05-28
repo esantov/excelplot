@@ -179,9 +179,7 @@ def main():
     global_model = st.sidebar.selectbox("Fit all samples with", list(MODELS.keys()))
     fit_all = st.sidebar.checkbox("Use global model for all samples", value=False)
 
-    # -----------------------------
     # Global Model Override
-    # -----------------------------
     st.sidebar.markdown("### Global Model Fit")
     global_model = st.sidebar.selectbox("Fit all samples with", list(MODELS.keys()))
     fit_all = st.sidebar.checkbox("Use global model for all samples", value=False)
@@ -221,5 +219,4 @@ def main():
             model = global_model
         else:
             model = st.sidebar.selectbox(f"Model for {sample}", list(MODELS.keys()))
-        if fit_all:
-            model = global_model
+            
