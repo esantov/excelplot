@@ -297,23 +297,17 @@ def main():
                 "Inverse Formula": FORMULA_INV_TEMPLATES[m]
             })
         formula_df = pd.DataFrame(formula_records)
-([
-            {"Model": m,
-             "Formula": FORMULA_TEMPLATES[m],
-             "Inverse Formula": FORMULA_INV_TEMPLATES[m]}
-            for m in FORMULA_TEMPLATES.keys()
-        ])
 
-fit_df_all = pd.concat(fit_data, ignore_index=True)
-report_items = [
-    ("Original Data", df0),
-    ("Edited Data", st.session_state.dfi),
-    ("Processed Data", processed_df),
-    ("Final Processed Data", processed_df),
-    ("Fitting Curves Data", pd.concat(fit_data, ignore_index=True))
-] + report_tables
+        fit_df_all = pd.concat(fit_data, ignore_index=True)(fit_data, ignore_index=True)
+        report_items = [
+            ("Original Data", df0),
+            ("Edited Data", st.session_state.dfi),
+            ("Processed Data", processed_df),
+            ("Final Processed Data", processed_df),
+            ("Fitting Curves Data", pd.concat(fit_data, ignore_index=True))
+        ] + report_tables
 
-    buf = io.BytesIO()
+        buf = io.BytesIO()
         with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
             for name,tbl in report_items:
                 tbl.to_excel(writer, sheet_name=name[:31], index=False)
