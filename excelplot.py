@@ -168,37 +168,7 @@ def main():
     if 'current_sheet' not in st.session_state or st.session_state.current_sheet != sheet:
         st.session_state.dfi = sheets[sheet].copy()
         st.session_state.current_sheet = sheet
-    df0_raw = sheets[sheet]
-    # Select data layout: long table or side-by-side blocks
-    layout = st.sidebar.radio("Data layout", ["Long table", "Blocks side-by-side"], index=0)
-    # Allow user to specify detection patterns (case-insensitive)
-    vial_pat = st.sidebar.text_input("Vial column contains", "vial").lower()
-    time_pat = st.sidebar.text_input("Time column contains", "time").lower()
-    signal_pat = st.sidebar.text_input("Signal column contains", "signal").lower()
-    if layout == "Blocks side-by-side":
-        # Detect repeating (Vial ID, Time, Signal) blocks based on user patterns
-        blocks = []
-        cols = df0_raw.columns.tolist()
-        for i in range(len(cols)-2):
-            c0, c1, c2 = cols[i].lower(), cols[i+1].lower(), cols[i+2].lower()
-            if vial_pat in c0 and time_pat in c1 and signal_pat in c2:
-                blocks.append((cols[i], cols[i+1], cols[i+2]))
-        if blocks:
-            parsed = []
-            for cid, ctime, csignal in blocks:
-                tmp = df0_raw[[cid, ctime, csignal]].copy()
-                tmp.columns = ["Vial ID", "Time", "Signal"]
-                parsed.append(tmp)
-            df0 = pd.concat(parsed, ignore_index=True)
-        else:
-            st.warning(f"No ({{vial_pat}}, {{time_pat}}, {{signal_pat}}) blocks detected; using sheet as-is.")
-            df0 = df0_raw.copy()
-    else:
-        # Assume sheet already in long format with appropriate columns
-        df0 = df0_raw.copy()
-    else:
-        # Assume sheet already in long format with appropriate columns
-        df0 = df0_raw.copy()
+    df0 = sheets[sheet]
     if 'dfi' not in st.session_state:
         st.session_state.dfi = df0.copy()
     df = st.session_state.dfi.copy()
