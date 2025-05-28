@@ -193,4 +193,5 @@ def main():
         buf.seek(0)
         st.download_button('Download',buf,'report.xlsx')
 
-if __name__=='__main__': main()
+if __name__=='__main__': 
+    main()
