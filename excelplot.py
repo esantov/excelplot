@@ -245,14 +245,12 @@ def main():
             # Insert fitted curves data
             fit_df_all = pd.concat(fit_data, ignore_index=True)
             fit_df_all.to_excel(writer, sheet_name='Fitting Curves Data', index=False)
-            # Insert plot images
-            workbook  = writer.book
-            # Fitted curves plot
+            # Insert plot image
             try:
                 img_buf = io.BytesIO()
                 fig_fit.write_image(img_buf, format='png')
                 img_buf.seek(0)
-                worksheet = workbook.add_worksheet('Fitted Plot')
+                worksheet = writer.book.add_worksheet('Fitted Plot')
                 worksheet.insert_image('B2', 'fitted_plot.png', {'image_data': img_buf})
             except Exception:
                 pass
