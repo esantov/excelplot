@@ -62,12 +62,19 @@ MODEL_PARAM_NAMES = {
     "Sigmoid": ["a", "b"],
     "4PL": ["A", "B", "C", "D"],
     "5PL": ["A", "B", "C", "D", "G"],
-    "Gompertz": ["a", "b", "c"]
+    "Gompertz": ["a", "b", "c"],
+    "Don Levin Sigmoid 2D": ["a1","b1","c1","a2","b2","c2","a3","b3","c3"]
 }
 
 # Formula templates for export
 FORMULA_TEMPLATES = {
     "Linear":      "y = {a}*x + {b}",
+    "Sigmoid":     "y = 1/(1+exp(-(x-{a})/{b}))",
+    "4PL":         "y = {D} + ({A}-{D})/(1+(x/{C})**{B})",
+    "5PL":         "y = {D} + ({A}-{D})/((1+(x/{C})**{B})**{G})",
+    "Gompertz":    "y = {a} * exp(-{b} * exp(-{c}*x))",
+    "Don Levin Sigmoid 2D": "y = {a1}/(1+exp(-(x-{b1})/{c1})) + {a2}/(1+exp(-(x-{b2})/{c2})) + {a3}/(1+exp(-(x-{b3})/{c3}))"
+}*x + {b}",
     "Sigmoid":     "y = 1/(1+exp(-(x-{a})/{b}))",
     "4PL":         "y = {D} + ({A}-{D})/(1+(x/{C})**{B})",
     "5PL":         "y = {D} + ({A}-{D})/((1+(x/{C})**{B})**{G})",
@@ -80,6 +87,12 @@ FORMULA_INV_TEMPLATES = {
     "Sigmoid":     "x = {a} + {b} * ln(y/(1-y))",
     "4PL":         "x = {C} * ((({A}-{D})/(y - {D}) - 1))**(1/{B})",
     "5PL":         "x = {C} * (((( {A}-{D})/(y - {D}))**(1/{G}) - 1))**(1/{B})",
+    "Gompertz":    "x = -(1/{c}) * ln(-ln(y/{a})/{b})",
+    "Don Levin Sigmoid 2D": "(No closed-form inverse)"
+}) / {a}",
+    "Sigmoid":     "x = {a} + {b} * ln(y/(1-y))",
+    "4PL":         "x = {C} * ((({A}-{D})/(y - {D}) - 1))**(1/{B})",
+    "5PL":         "x = {C} * (((( {A}-{D})/(y - {D}))**(1/{G}) - 1))**(1/{B})",
     "Gompertz":    "x = -(1/{c}) * ln(-ln(y/{a})/{b})"
 }
 
@@ -88,7 +101,14 @@ MODELS = {
     "Sigmoid":     (lambda x,a,b: 1/(1 + np.exp(-(x-a)/b)), [np.median,1]),
     "4PL":         (lambda x,A,B,C,D: D + (A-D)/(1+(x/C)**B), [1,1,1,0]),
     "5PL":         (lambda x,A,B,C,D,G: D + (A-D)/((1+(x/C)**B)**G), [1,1,1,0,1]),
-    "Gompertz":    (lambda x,a,b,c: a * np.exp(-b * np.exp(-c*x)), [1,1,1])
+    "Gompertz":    (lambda x,a,b,c: a * np.exp(-b * np.exp(-c*x)), [1,1,1]),
+    "Don Levin Sigmoid 2D": (
+        lambda x,a1,b1,c1,a2,b2,c2,a3,b3,c3:
+            a1/(1+np.exp(-(x-b1)/c1))
+            + a2/(1+np.exp(-(x-b2)/c2))
+            + a3/(1+np.exp(-(x-b3)/c3)),
+        [1, np.median, 1, 1, np.median, 1, 1, np.median, 1]
+    )
 }
 
 # -----------------------------
@@ -168,7 +188,37 @@ def main():
     if 'current_sheet' not in st.session_state or st.session_state.current_sheet != sheet:
         st.session_state.dfi = sheets[sheet].copy()
         st.session_state.current_sheet = sheet
-    df0 = sheets[sheet]
+    df0_raw = sheets[sheet]
+    # Select data layout: long table or side-by-side blocks
+    layout = st.sidebar.radio("Data layout", ["Long table", "Blocks side-by-side"], index=0)
+    # Allow user to specify detection patterns (case-insensitive)
+    vial_pat = st.sidebar.text_input("Vial column contains", "vial").lower()
+    time_pat = st.sidebar.text_input("Time column contains", "time").lower()
+    signal_pat = st.sidebar.text_input("Signal column contains", "signal").lower()
+    if layout == "Blocks side-by-side":
+        # Detect repeating (Vial ID, Time, Signal) blocks based on user patterns
+        blocks = []
+        cols = df0_raw.columns.tolist()
+        for i in range(len(cols)-2):
+            c0, c1, c2 = cols[i].lower(), cols[i+1].lower(), cols[i+2].lower()
+            if vial_pat in c0 and time_pat in c1 and signal_pat in c2:
+                blocks.append((cols[i], cols[i+1], cols[i+2]))
+        if blocks:
+            parsed = []
+            for cid, ctime, csignal in blocks:
+                tmp = df0_raw[[cid, ctime, csignal]].copy()
+                tmp.columns = ["Vial ID", "Time", "Signal"]
+                parsed.append(tmp)
+            df0 = pd.concat(parsed, ignore_index=True)
+        else:
+            st.warning(f"No ({{vial_pat}}, {{time_pat}}, {{signal_pat}}) blocks detected; using sheet as-is.")
+            df0 = df0_raw.copy()
+    else:
+        # Assume sheet already in long format with appropriate columns
+        df0 = df0_raw.copy()
+    else:
+        # Assume sheet already in long format with appropriate columns
+        df0 = df0_raw.copy()
     if 'dfi' not in st.session_state:
         st.session_state.dfi = df0.copy()
     df = st.session_state.dfi.copy()
