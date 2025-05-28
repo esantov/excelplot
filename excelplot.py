@@ -228,23 +228,13 @@ def main():
     y_col = st.sidebar.selectbox("Y Column", num_cols)
 
     transforms = st.sidebar.multiselect("Transforms", list(TRANSFORMS.keys()), default=["None"])
-    # Multiple Thresholds input
-    threshold_str = st.sidebar.text_input("Thresholds (comma-separated, max 6)", "1.0")
-    # parse up to 6 thresholds
-    try:
-        thresholds = [float(t.strip()) for t in threshold_str.split(',') if t.strip()][:6]
-    except ValueError:
-        st.sidebar.error("Invalid threshold list; please enter numbers separated by commas.")
-        thresholds = [1.0]
-    if not thresholds:
-        thresholds = [1.0]
-    # Global model selector (default 4PL)
+    threshold = st.sidebar.number_input("Threshold", value=1.0)
     global_model = st.sidebar.selectbox(
         "Global Model", list(MODELS.keys()), index=list(MODELS.keys()).index("4PL")
     )
-    use_global = st.sidebar.checkbox("Use Global Model for All")("Use Global Model for All")
+    use_global = st.sidebar.checkbox("Use Global Model for All")
 
-    selpts = plot_interactive(df, df0, x_col, y_col, sample_col, transforms, thresholds[0])(df, df0, x_col, y_col, sample_col, transforms, threshold)
+    selpts = plot_interactive(df, df0, x_col, y_col, sample_col, transforms, threshold)
     if selpts and st.button("Remove Selected Points"):
         idxs = [pt['customdata'] for pt in selpts]
         st.session_state.dfi = df0.drop(index=idxs)
