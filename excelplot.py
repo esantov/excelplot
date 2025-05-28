@@ -218,7 +218,7 @@ def main():
             fig_fit.add_trace(go.Scatter(x=x_lin, y=y_line, mode='lines', name=f"{sample} fit"))
             params_list.append({"Sample": sample, "Model": model, "R2": round(r2,4), "RMSE": round(rmse,4)})
             tt_list.append((sample, tt, ttse))
-            fit_df = pd.DataFrame({sample_col: sample, x_col: x лин, f"{y_col}_fit": y_line})
+            fit_df = pd.DataFrame({sample_col: sample, x_col: x лин, f"{y_col}_fit": y_line}),
             fit_data.append(fit_df)
         except Exception as e:
             st.warning(f"Fit error for {sample}: {e}")
