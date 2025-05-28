@@ -207,9 +207,7 @@ def main():
         else:
             st.warning(f"No ({{vial_pat}}, {{time_pat}}, {{signal_pat}}) blocks detected; using sheet as-is.")
             df0 = df0_raw.copy()
-    else:
-        # Assume sheet already in long format with appropriate columns
-        df0 = df0_raw.copy()
+    # [Removed duplicate else block]
     else:
         # Assume sheet already in long format with appropriate columns
         df0 = df0_raw.copy()
