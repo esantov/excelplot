@@ -271,4 +271,4 @@ def main():
 data=buf,
 file_name="Analysis_Report.xlsx",
 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+
