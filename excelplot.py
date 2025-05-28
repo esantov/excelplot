@@ -305,13 +305,13 @@ def main():
         ])
 
 fit_df_all = pd.concat(fit_data, ignore_index=True)
-    report_items = [
-        ("Original Data", df0),
-        ("Edited Data", st.session_state.dfi),
-        ("Processed Data", processed_df),
-        ("Final Processed Data", processed_df),
-        ("Fitting Curves Data", pd.concat(fit_data, ignore_index=True))
-    ] + report_tables
+report_items = [
+    ("Original Data", df0),
+    ("Edited Data", st.session_state.dfi),
+    ("Processed Data", processed_df),
+    ("Final Processed Data", processed_df),
+    ("Fitting Curves Data", pd.concat(fit_data, ignore_index=True))
+] + report_tables
 
         buf = io.BytesIO()
         with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
