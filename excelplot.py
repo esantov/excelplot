@@ -266,8 +266,8 @@ def main():
             data=buf,
             file_name="Analysis_Report.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )(
-            label="Download Report",
+        )
+"Download Report",
             data=buf,
             file_name="Analysis_Report.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
