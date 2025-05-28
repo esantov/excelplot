@@ -264,6 +264,6 @@ def main():
             file_name="Analysis_Report.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 if __name__ == '__main__':
-    main() == '__main__':
     main()
