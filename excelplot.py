@@ -228,45 +228,37 @@ def main():
     st.dataframe(pd.DataFrame(tt_list, columns=["Sample","TT","TT_SE"]))
 
     if st.button("Export Report"):
-        # Always include final processed and fitting data
+        # Prepare report sheets
         fit_df_all = pd.concat(fit_data, ignore_index=True)
         report_items = [
             ("Original Data", df0),
             ("Edited Data", st.session_state.dfi),
             ("Processed Data", df),
             ("Final Processed Data", df),
-            ("Fitting Curves Data", fit_df_all),
+            ("Fitting Curves Data", fit_df_all)
         ] + report_tables
 
         buf = io.BytesIO()
         with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
+            # Write each report item
             for name, tbl in report_items:
-                # ensure sheet name length <=31
-                writer_df = tbl.copy()
                 safe_name = name[:31]
-                writer_df.to_excel(writer, sheet_name=safe_name, index=False)
-
-            # Fitted parameters and TT
+                tbl.to_excel(writer, sheet_name=safe_name, index=False)
+            # Write fit params and TT
             pd.DataFrame(params_list).to_excel(writer, sheet_name='Fit Parameters', index=False)
             pd.DataFrame(tt_list, columns=["Sample","TT","TT_SE"]).to_excel(writer, sheet_name='Time to Threshold', index=False)
-
-            # Insert fitted plot image
+            # Insert plot image if possible
             try:
                 img_buf = io.BytesIO()
                 fig_fit.write_image(img_buf, format='png')
-                img_        buf.seek(0)
-        st.download_button(
-            label="Download Report",
-            data=buf,
-            file_name="Analysis_Report.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+                img_buf.seek(0)
+                workbook = writer.book
+                worksheet = workbook.add_worksheet('Fitted Plot')
                 worksheet.insert_image('B2', 'fitted_plot.png', {'image_data': img_buf})
             except Exception:
                 pass
-
         buf.seek(0)
-                st.download_button(
+        st.download_button(
             label="Download Report",
             data=buf,
             file_name="Analysis_Report.xlsx",
