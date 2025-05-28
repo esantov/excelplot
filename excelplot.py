@@ -304,7 +304,7 @@ def main():
             for m in FORMULA_TEMPLATES.keys()
         ])
 
-    fit_df_all = pd.concat(fit_data, ignore_index=True)
+fit_df_all = pd.concat(fit_data, ignore_index=True)
         report_items = [
             ("Original Data", df0),
             ("Edited Data", st.session_state.dfi),
