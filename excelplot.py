@@ -59,11 +59,11 @@ TRANSFORMS = {
 # 3. Model Definitions
 # -----------------------------
 MODELS = {
-    "Linear":      (lambda x,a,b: a*x + b, [1,0]),
-    "Sigmoid":     (lambda x,a,b: 1/(1 + np.exp(-(x-a)/b)), [np.median,1]),
     "4PL":         (lambda x,A,B,C,D: D + (A-D)/(1+(x/C)**B), [1,1,1,0]),
     "5PL":         (lambda x,A,B,C,D,G: D + (A-D)/((1+(x/C)**B)**G), [1,1,1,0,1]),
-    "Gompertz":    (lambda x,a,b,c: a * np.exp(-b * np.exp(-c*x)), [1,1,1])
+    "Sigmoid":     (lambda x,a,b: 1/(1 + np.exp(-(x-a)/b)), [np.median,1]),
+    "Gompertz":    (lambda x,a,b,c: a * np.exp(-b * np.exp(-c*x)), [1,1,1]),
+    "Linear":      (lambda x,a,b: a*x + b, [1,0])
 }
 
 def fit_and_eval(x: np.ndarray, y: np.ndarray, model_name: str, threshold: float):
