@@ -163,7 +163,11 @@ def main():
         st.info("Upload a file to begin.")
         return
     sheets = load_excel_sheets(uploaded)
-    sheet = st.sidebar.selectbox("Sheet", list(sheets.keys()))
+    sheet = st.sidebar.selectbox("Sheet", list(sheets.keys()), key="sheet_select")
+    # Reset interactive dataframe when sheet changes
+    if 'current_sheet' not in st.session_state or st.session_state.current_sheet != sheet:
+        st.session_state.dfi = sheets[sheet].copy()
+        st.session_state.current_sheet = sheet
     df0 = sheets[sheet]
     if 'dfi' not in st.session_state:
         st.session_state.dfi = df0.copy()
