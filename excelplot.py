@@ -237,7 +237,8 @@ def main():
     st.plotly_chart(fig_fit, use_container_width=True)
 
     if st.button("Add Final Processed Data to Report"):
-        report_tables.append(("Final Data", df.copy()))
+        # Append the processed (transformed) data
+        report_tables.append(("Final Processed Data", processed_df.copy()))
     if st.button("Add Final Fitting Data to Report"):
         report_tables.append(("Fitting Curves", pd.concat(fit_data, ignore_index=True)))
 
@@ -251,9 +252,9 @@ def main():
         report_items = [
             ("Original Data", df0),
             ("Edited Data", st.session_state.dfi),
-            ("Processed Data", df),
-            ("Final Processed Data", df),
-            ("Fitting Curves Data", fit_df_all)
+            ("Processed Data", processed_df),
+            ("Final Processed Data", processed_df),
+            ("Fitting Curves Data", pd.concat(fit_data, ignore_index=True))
         ] + report_tables
 
         buf = io.BytesIO()
