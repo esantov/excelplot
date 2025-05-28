@@ -261,7 +261,7 @@ def main():
                 pass
 
         buf.seek(0)
-        st.download_button(
+            st.download_button(
             label="Download Report",
             data=buf,
             file_name="Analysis_Report.xlsx",
