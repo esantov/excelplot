@@ -254,14 +254,19 @@ def main():
             try:
                 img_buf = io.BytesIO()
                 fig_fit.write_image(img_buf, format='png')
-                img_buf.seek(0)
-                worksheet = writer.book.add_worksheet('Fitted Plot')
+                img_        buf.seek(0)
+        st.download_button(
+            label="Download Report",
+            data=buf,
+            file_name="Analysis_Report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
                 worksheet.insert_image('B2', 'fitted_plot.png', {'image_data': img_buf})
             except Exception:
                 pass
 
         buf.seek(0)
-            st.download_button(
+                st.download_button(
             label="Download Report",
             data=buf,
             file_name="Analysis_Report.xlsx",
