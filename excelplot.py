@@ -44,6 +44,7 @@ TRANSFORMS = {
     "Fix initial baseline": fix_initial_baseline,
     "Baseline subtraction": lambda y: y - y.iloc[0],
     "Log transform": lambda y: np.log1p(y),
+    "Delta from initial": lambda y: y - y.iloc[0],
     "Z-score normalization": lambda y: (y - y.mean()) / (y.std() or 1),
     "I/I0 normalization": lambda y: y / (y.iloc[0] or 1),
     "Min-Max normalization (0-1)": lambda y: (y - y.min()) / ((y.max() - y.min()) or 1),
@@ -182,7 +183,9 @@ def main():
 
     transforms = st.sidebar.multiselect("Transforms", list(TRANSFORMS.keys()), default=["None"])
     threshold = st.sidebar.number_input("Threshold", value=1.0)
-    global_model = st.sidebar.selectbox("Global Model", list(MODELS.keys()))
+    global_model = st.sidebar.selectbox(
+        "Global Model", list(MODELS.keys()), index=list(MODELS.keys()).index("4PL")
+    )
     use_global = st.sidebar.checkbox("Use Global Model for All")
 
     selpts = plot_interactive(df, df0, x_col, y_col, sample_col, transforms, threshold)
@@ -223,7 +226,9 @@ def main():
 
     for sample in df[sample_col].unique():
         grp = df[df[sample_col]==sample].sort_values(x_col)
-        model = global_model if use_global else st.sidebar.selectbox(f"Model for {sample}", list(MODELS.keys()))
+        model = global_model if use_global else st.sidebar.selectbox(
+                f"Model for {sample}", list(MODELS.keys()), index=list(MODELS.keys()).index("4PL")
+            )
         x_vals = grp[x_col].values
         y_vals = apply_transforms(grp, transforms, y_col, sample_col).values
         try:
