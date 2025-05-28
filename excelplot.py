@@ -44,7 +44,6 @@ TRANSFORMS = {
     "Fix initial baseline": fix_initial_baseline,
     "Baseline subtraction": lambda y: y - y.iloc[0],
     "Log transform": lambda y: np.log1p(y),
-    "Delta from initial": lambda y: y - y.iloc[0],
     "Z-score normalization": lambda y: (y - y.mean()) / (y.std() or 1),
     "I/I0 normalization": lambda y: y / (y.iloc[0] or 1),
     "Min-Max normalization (0-1)": lambda y: (y - y.min()) / ((y.max() - y.min()) or 1),
