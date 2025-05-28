@@ -242,8 +242,7 @@ def main():
             # plot data and fit
             fig_fit.add_trace(go.Scatter(x=x_vals, y=y_vals, mode='markers', name=f"{sample} data"))
             y_line = MODELS[model][0](x_lin, *popt)
-            fig_fit.add_trace(go.Scatter(x=x_lin, y=y_line, mode='lines', name=f"{sample} fit"))            
-            # record parameters
+            fig_fit.add_trace(go.Scatter(x=x_lin, y=y_line, mode='lines', name=f"{sample} fit"))            # record parameters
             param_names = MODEL_PARAM_NAMES[model]
             param_dict = {name: round(val, 4) for name, val in zip(param_names, popt)}
             # add forward formula
@@ -287,6 +286,24 @@ def main():
     st.dataframe(pd.DataFrame(tt_list, columns=["Sample","TT","TT_SE"]))
 
     if st.button("Export Report"):
+        # Prepare a sheet with generic formulas for each model (including parameter names)
+        formula_records = []
+        for m in FORMULA_TEMPLATES.keys():
+            params = ", ".join(MODEL_PARAM_NAMES.get(m, []))
+            formula_records.append({
+                "Model": m,
+                "Parameters": params,
+                "Formula": FORMULA_TEMPLATES[m],
+                "Inverse Formula": FORMULA_INV_TEMPLATES[m]
+            })
+        formula_df = pd.DataFrame(formula_records)
+([
+            {"Model": m,
+             "Formula": FORMULA_TEMPLATES[m],
+             "Inverse Formula": FORMULA_INV_TEMPLATES[m]}
+            for m in FORMULA_TEMPLATES.keys()
+        ])
+
         fit_df_all = pd.concat(fit_data, ignore_index=True)
         report_items = [
             ("Original Data", df0),
