@@ -74,12 +74,8 @@ FORMULA_TEMPLATES = {
     "5PL":         "y = {D} + ({A}-{D})/((1+(x/{C})**{B})**{G})",
     "Gompertz":    "y = {a} * exp(-{b} * exp(-{c}*x))",
     "Don Levin Sigmoid 2D": "y = {a1}/(1+exp(-(x-{b1})/{c1})) + {a2}/(1+exp(-(x-{b2})/{c2})) + {a3}/(1+exp(-(x-{b3})/{c3}))"
-}*x + {b}",
-    "Sigmoid":     "y = 1/(1+exp(-(x-{a})/{b}))",
-    "4PL":         "y = {D} + ({A}-{D})/(1+(x/{C})**{B})",
-    "5PL":         "y = {D} + ({A}-{D})/((1+(x/{C})**{B})**{G})",
-    "Gompertz":    "y = {a} * exp(-{b} * exp(-{c}*x))"
 }
+
 
 # Inverse formula templates for export
 FORMULA_INV_TEMPLATES = {
