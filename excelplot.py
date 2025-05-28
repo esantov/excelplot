@@ -242,11 +242,28 @@ def main():
             # plot data and fit
             fig_fit.add_trace(go.Scatter(x=x_vals, y=y_vals, mode='markers', name=f"{sample} data"))
             y_line = MODELS[model][0](x_lin, *popt)
-            fig_fit.add_trace(go.Scatter(x=x_lin, y=y_line, mode='lines', name=f"{sample} fit"))
+            fig_fit.add_trace(go.Scatter(x=x_lin, y=y_line, mode='lines', name=f"{sample} fit"))            
             # record parameters
             param_names = MODEL_PARAM_NAMES[model]
-            param_dict = {name: round(val,4) for name,val in zip(param_names, popt)}
-            param_dict.update({"Sample": sample, "Model": model, "R2": round(r2,4), "RMSE": round(rmse,4)})
+            param_dict = {name: round(val, 4) for name, val in zip(param_names, popt)}
+            # add forward formula
+            try:
+                formula = FORMULA_TEMPLATES[model].format(**param_dict)
+            except Exception:
+                formula = ''
+            # add inverse formula
+            try:
+                inv_formula = FORMULA_INV_TEMPLATES[model].format(**param_dict)
+            except Exception:
+                inv_formula = ''
+            param_dict.update({
+                "Sample": sample,
+                "Model": model,
+                "Formula": formula,
+                "Inverse Formula": inv_formula,
+                "R2": round(r2, 4),
+                "RMSE": round(rmse, 4)
+            })
             params_list.append(param_dict)
             tt_list.append((sample, tt, ttse))
             # collect fit curve data
