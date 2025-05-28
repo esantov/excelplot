@@ -65,6 +65,24 @@ MODEL_PARAM_NAMES = {
     "Gompertz": ["a", "b", "c"]
 }
 
+# Formula templates for export
+FORMULA_TEMPLATES = {
+    "Linear":      "y = {a}*x + {b}",
+    "Sigmoid":     "y = 1/(1+exp(-(x-{a})/{b}))",
+    "4PL":         "y = {D} + ({A}-{D})/(1+(x/{C})**{B})",
+    "5PL":         "y = {D} + ({A}-{D})/((1+(x/{C})**{B})**{G})",
+    "Gompertz":    "y = {a} * exp(-{b} * exp(-{c}*x))"
+}
+
+# Inverse formula templates for export
+FORMULA_INV_TEMPLATES = {
+    "Linear":      "x = (y - {b}) / {a}",
+    "Sigmoid":     "x = {a} + {b} * ln(y/(1-y))",
+    "4PL":         "x = {C} * ((({A}-{D})/(y - {D}) - 1))**(1/{B})",
+    "5PL":         "x = {C} * (((( {A}-{D})/(y - {D}))**(1/{G}) - 1))**(1/{B})",
+    "Gompertz":    "x = -(1/{c}) * ln(-ln(y/{a})/{b})"
+}
+
 MODELS = {
     "Linear":      (lambda x,a,b: a*x + b, [1,0]),
     "Sigmoid":     (lambda x,a,b: 1/(1 + np.exp(-(x-a)/b)), [np.median,1]),
