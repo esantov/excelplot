@@ -257,7 +257,9 @@ def main():
             except Exception:
                 pass
         buf.seek(0)
-        st.download_button("Download Report", data=buf, file_name="Analysis_Report.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")("Download Report", data=buf, file_name="Analysis_Report.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
-if __name__ == '__main__':
-    main()
+                st.download_button(
+            label="Download Report",
+            data=buf,
+            file_name="Analysis_Report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
