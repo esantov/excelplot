@@ -7,11 +7,12 @@ import plotly.graph_objects as go
 from scipy.optimize import curve_fit, root_scalar
 
 # Optional import for point selection
+HAS_PLOTLY_EVENTS = True
 try:
     from streamlit_plotly_events import plotly_events
 except ImportError:
     plotly_events = None
-    st.sidebar.warning("Install 'streamlit-plotly-events' for interactive selection.")
+    HAS_PLOTLY_EVENTS = False
 
 # Global storage for sample asymptotes and report tables
 asymptotes = {}
