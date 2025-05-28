@@ -42,6 +42,7 @@ def uniform_asymptote(y: pd.Series, sample: str, out_range=(0,1)) -> pd.Series:
 
 TRANSFORMS = {
     "None": lambda y: y,
+    "Remove T0": lambda y: y.iloc[1:] if len(y)>1 else y,
     "Fix initial baseline": fix_initial_baseline,
     "Baseline subtraction": lambda y: y - y.iloc[0],
     "Log transform": lambda y: np.log1p(y),
@@ -59,11 +60,11 @@ TRANSFORMS = {
 # 3. Model Definitions
 # -----------------------------
 MODELS = {
+    "Linear":      (lambda x,a,b: a*x + b, [1,0]),
+    "Sigmoid":     (lambda x,a,b: 1/(1 + np.exp(-(x-a)/b)), [np.median,1]),
     "4PL":         (lambda x,A,B,C,D: D + (A-D)/(1+(x/C)**B), [1,1,1,0]),
     "5PL":         (lambda x,A,B,C,D,G: D + (A-D)/((1+(x/C)**B)**G), [1,1,1,0,1]),
-    "Sigmoid":     (lambda x,a,b: 1/(1 + np.exp(-(x-a)/b)), [np.median,1]),
-    "Gompertz":    (lambda x,a,b,c: a * np.exp(-b * np.exp(-c*x)), [1,1,1]),
-    "Linear":      (lambda x,a,b: a*x + b, [1,0])
+    "Gompertz":    (lambda x,a,b,c: a * np.exp(-b * np.exp(-c*x)), [1,1,1])
 }
 
 def fit_and_eval(x: np.ndarray, y: np.ndarray, model_name: str, threshold: float):
@@ -229,12 +230,34 @@ def main():
     if st.button("Export Report"):
         buf = io.BytesIO()
         with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
+            # Original raw data
             df0.to_excel(writer, sheet_name='Original Data', index=False)
+            # Edited data
             st.session_state.dfi.to_excel(writer, sheet_name='Edited Data', index=False)
+            # Processed data (after transforms)
+            df.to_excel(writer, sheet_name='Processed Data', index=False)
+            # User-added report tables
             for name, tbl in report_tables:
                 tbl.to_excel(writer, sheet_name=name[:31], index=False)
+            # Fitted parameters and TT
+            pd.DataFrame(params_list).to_excel(writer, sheet_name='Fit Parameters', index=False)
+            pd.DataFrame(tt_list, columns=["Sample","TT","TT_SE"]).to_excel(writer, sheet_name='Time to Threshold', index=False)
+            # Insert fitted curves data
+            fit_df_all = pd.concat(fit_data, ignore_index=True)
+            fit_df_all.to_excel(writer, sheet_name='Fitting Curves Data', index=False)
+            # Insert plot images
+            workbook  = writer.book
+            # Fitted curves plot
+            try:
+                img_buf = io.BytesIO()
+                fig_fit.write_image(img_buf, format='png')
+                img_buf.seek(0)
+                worksheet = workbook.add_worksheet('Fitted Plot')
+                worksheet.insert_image('B2', 'fitted_plot.png', {'image_data': img_buf})
+            except Exception:
+                pass
         buf.seek(0)
-        st.download_button("Download Report", data=buf, file_name="Analysis_Report.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        st.download_button("Download Report", data=buf, file_name="Analysis_Report.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")("Download Report", data=buf, file_name="Analysis_Report.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 if __name__ == '__main__':
     main()
