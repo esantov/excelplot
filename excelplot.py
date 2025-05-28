@@ -174,7 +174,7 @@ def main():
         st.session_state.dfi = df0.drop(index=idxs)
         st.experimental_rerun()
 
-    # Editable table
+        # Editable table
     st.subheader("Data Table (Editable)")
     if hasattr(st, 'data_editor'):
         edf = st.data_editor(df, num_rows="dynamic", use_container_width=True)
@@ -187,6 +187,16 @@ def main():
         st.session_state.dfi = edf.copy()
         st.experimental_rerun()
     df = edf.copy()
+
+    # Prepare processed data with transformations applied
+    processed_df = []
+    for sample in df[sample_col].unique():
+        grp = df[df[sample_col]==sample].sort_values(x_col)
+        y_trans = apply_transforms(grp, transforms, y_col, sample_col)
+        grp_proc = grp.copy()
+        grp_proc[y_col] = y_trans.values
+        processed_df.append(grp_proc)
+    processed_df = pd.concat(processed_df, ignore_index=True)
 
     # Model fitting & report
     st.header("Model Fitting Results")
