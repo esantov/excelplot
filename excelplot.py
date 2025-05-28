@@ -228,24 +228,29 @@ def main():
     st.dataframe(pd.DataFrame(tt_list, columns=["Sample","TT","TT_SE"]))
 
     if st.button("Export Report"):
+        # Always include final processed and fitting data
+        fit_df_all = pd.concat(fit_data, ignore_index=True)
+        report_items = [
+            ("Original Data", df0),
+            ("Edited Data", st.session_state.dfi),
+            ("Processed Data", df),
+            ("Final Processed Data", df),
+            ("Fitting Curves Data", fit_df_all),
+        ] + report_tables
+
         buf = io.BytesIO()
         with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
-            # Original raw data
-            df0.to_excel(writer, sheet_name='Original Data', index=False)
-            # Edited data
-            st.session_state.dfi.to_excel(writer, sheet_name='Edited Data', index=False)
-            # Processed data (after transforms)
-            df.to_excel(writer, sheet_name='Processed Data', index=False)
-            # User-added report tables
-            for name, tbl in report_tables:
-                tbl.to_excel(writer, sheet_name=name[:31], index=False)
+            for name, tbl in report_items:
+                # ensure sheet name length <=31
+                writer_df = tbl.copy()
+                safe_name = name[:31]
+                writer_df.to_excel(writer, sheet_name=safe_name, index=False)
+
             # Fitted parameters and TT
             pd.DataFrame(params_list).to_excel(writer, sheet_name='Fit Parameters', index=False)
             pd.DataFrame(tt_list, columns=["Sample","TT","TT_SE"]).to_excel(writer, sheet_name='Time to Threshold', index=False)
-            # Insert fitted curves data
-            fit_df_all = pd.concat(fit_data, ignore_index=True)
-            fit_df_all.to_excel(writer, sheet_name='Fitting Curves Data', index=False)
-            # Insert plot image
+
+            # Insert fitted plot image
             try:
                 img_buf = io.BytesIO()
                 fig_fit.write_image(img_buf, format='png')
@@ -254,8 +259,14 @@ def main():
                 worksheet.insert_image('B2', 'fitted_plot.png', {'image_data': img_buf})
             except Exception:
                 pass
+
         buf.seek(0)
         st.download_button(
+            label="Download Report",
+            data=buf,
+            file_name="Analysis_Report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )(
             label="Download Report",
             data=buf,
             file_name="Analysis_Report.xlsx",
