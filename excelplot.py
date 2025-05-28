@@ -80,6 +80,12 @@ FORMULA_TEMPLATES = {
 # Inverse formula templates for export
 FORMULA_INV_TEMPLATES = {
     "Linear":      "x = (y - {b}) / {a}",
+    "Sigmoid":     "x = {a} + {b} * LN(y/(1-y))",
+    "4PL":         "x = {C} * POWER(((A-D)/(y-D) - 1), 1/{B})",
+    "5PL":         "x = {C} * POWER((( (A-D)/(y-D))^(1/{G}) - 1), 1/{B})",
+    "Gompertz":    "x = -(1/{c}) * LN(-LN(y/{a})/{b})",
+    "Don Levin Sigmoid 2D": "(No closed-form inverse)"
+} / {a}",
     "Sigmoid":     "x = {a} + {b} * ln(y/(1-y))",
     "4PL":         "x = {C} * ((({A}-{D})/(y - {D}) - 1))**(1/{B})",
     "5PL":         "x = {C} * (((( {A}-{D})/(y - {D}))**(1/{G}) - 1))**(1/{B})",
