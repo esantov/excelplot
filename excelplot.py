@@ -136,9 +136,20 @@ def main():
     fa=st.sidebar.checkbox('Use global model')
     selpts=plot_interactive(df,df0,xc,yc,sc,trans,thr)
     if selpts and st.button('Remove Selected'): st.session_state.dfi=df0.drop(index=[p['customdata'] for p in selpts])
-    # edits
-    ed=st.experimental_data_editor(df)
-    if st.button('Apply edits'): st.session_state.dfi=ed.copy(); st.experimental_rerun()
+        # edits (make table editing version-agnostic)
+    st.subheader("Data Table (Editable)")
+    if hasattr(st, 'data_editor'):
+        edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True)
+    elif hasattr(st, 'experimental_data_editor'):
+        edited_df = st.experimental_data_editor(df, num_rows="dynamic", use_container_width=True)
+    else:
+        st.warning("Your Streamlit version does not support an editable table. Skipping.")
+        edited_df = df.copy()
+    if st.button('Apply edits'):
+        st.session_state.dfi = edited_df.copy()
+        st.experimental_rerun()
+    df = edited_df.copy()
+
     # fitting & reporting
     st.header('Fits')
     xlin=np.linspace(df[xc].min(),df[xc].max(),200)
