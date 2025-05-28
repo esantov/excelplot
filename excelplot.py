@@ -298,13 +298,14 @@ def main():
             })
         formula_df = pd.DataFrame(formula_records)
 
-        fit_df_all = pd.concat(fit_data, ignore_index=True)(fit_data, ignore_index=True)
+        fit_df_all = pd.concat(fit_data, ignore_index=True)
         report_items = [
+            ("Model Formulas", formula_df),
             ("Original Data", df0),
             ("Edited Data", st.session_state.dfi),
             ("Processed Data", processed_df),
             ("Final Processed Data", processed_df),
-            ("Fitting Curves Data", pd.concat(fit_data, ignore_index=True))
+            ("Fitting Curves Data", fit_df_all)
         ] + report_tables
 
         buf = io.BytesIO()
