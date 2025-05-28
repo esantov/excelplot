@@ -313,7 +313,7 @@ report_items = [
     ("Fitting Curves Data", pd.concat(fit_data, ignore_index=True))
 ] + report_tables
 
-        buf = io.BytesIO()
+    buf = io.BytesIO()
         with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
             for name,tbl in report_items:
                 tbl.to_excel(writer, sheet_name=name[:31], index=False)
