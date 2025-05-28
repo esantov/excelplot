@@ -223,5 +223,3 @@ def main():
             model = st.sidebar.selectbox(f"Model for {sample}", list(MODELS.keys()))
         if fit_all:
             model = global_model
-        else:
-            # model selection handled above
