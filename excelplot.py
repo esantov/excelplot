@@ -246,5 +246,4 @@ def main():
         buf.seek(0)
         st.download_button("Download Report", data=buf, file_name="Analysis_Report.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-if __name__ == "__main__":
-    main()
+
