@@ -75,13 +75,12 @@ FORMULA_TEMPLATES = {
     "5PL":         "y = {D} + ({A}-{D})/((1+(x/{C})**{B})**{G})",
     "Gompertz":    "y = {a} * exp(-{b} * exp(-{c}*x))",
     "Don Levin Sigmoid 2D": "y = {a1}/(1+exp(-(x-{b1})/{c1})) + {a2}/(1+exp(-(x-{b2})/{c2})) + {a3}/(1+exp(-(x-{b3})/{c3}))",
-     "5PL AvSlope": (
-            "AvSlope = 2*ABS(Slope)*SlopeCon/(1+SlopeCon); "
-            "fx = 1/(1 + (x/EC50)^AvSlope); "
-            "y = min + (max-min)/(1 + fx*(x/EC50)^(-Slope) + (1-fx)*(x/EC50)^(-Slope*SlopeCon))"
-        )    
+    "5PL AvSlope": (
+        "AvSlope = 2*ABS(Slope)*SlopeCon/(1+SlopeCon); "
+        "fx = 1/(1 + (x/EC50)^AvSlope); "
+        "y = min + (max-min)/(1 + fx*(x/EC50)^(-Slope) + (1-fx)*(x/EC50)^(-Slope*SlopeCon))"
+    )
 }
-
 
 # Inverse formula templates for export
 FORMULA_INV_TEMPLATES = {
@@ -100,11 +99,6 @@ FORMULA_INV_TEMPLATES = {
 def five_pl_avslope(x, min_y, max_y, EC50, Slope, SlopeCon):
     """
     Modello asimmetrico tipo 5PL con AvSlope e mix di due pendenze.
-
-    AvSlope = 2*abs(Slope)*SlopeCon/(1+SlopeCon)
-    fx      = 1/(1 + (x/EC50)^AvSlope)
-    f1      = min + (max-min)/(1 + fx*(x/EC50)^(-Slope) + (1-fx)*(x/EC50)^(-Slope*SlopeCon))
-    f(x)    = min (o max) per x <= 0, altrimenti f1
     """
     x = np.asarray(x, dtype=float)
 
@@ -154,8 +148,6 @@ MODELS = {
     ),
     "5PL AvSlope": (
         five_pl_avslope,
-        # i valori in questa lista per ora non vengono usati come p0,
-        # ma manteniamo una struttura coerente
         [0.0, 1.0, 1.0, 1.0, 1.0]
     )
 }
@@ -311,7 +303,6 @@ def main():
         else:
             st.warning(f"No ({{vial_pat}}, {{time_pat}}, {{signal_pat}}) blocks detected; using sheet as-is.")
             df0 = df0_raw.copy()
-    # [Removed duplicate else block]
     else:
         # Assume sheet already in long format with appropriate columns
         df0 = df0_raw.copy()
@@ -331,53 +322,45 @@ def main():
     x_col = st.sidebar.selectbox("X Column", num_cols)
     y_col = st.sidebar.selectbox("Y Column", num_cols)
 
+    # --- widgets UNICI per modello / trasformazioni ---
     transforms = st.sidebar.multiselect("Transforms", list(TRANSFORMS.keys()), default=["None"])
     threshold = st.sidebar.number_input("Threshold", value=1.0)
     global_model = st.sidebar.selectbox(
         "Global Model", list(MODELS.keys()), index=list(MODELS.keys()).index("4PL")
     )
     use_global = st.sidebar.checkbox("Use Global Model for All")
-
-    transforms = st.sidebar.multiselect("Transforms", list(TRANSFORMS.keys()), default=["None"])
-    threshold = st.sidebar.number_input("Threshold", value=1.0)
-    global_model = st.sidebar.selectbox(
-        "Global Model", list(MODELS.keys()), index=list(MODELS.keys()).index("4PL")
-    )
-    use_global = st.sidebar.checkbox("Use Global Model for All")
-    
-    # NEW: toggle griglia
     show_grid = st.sidebar.checkbox("Show gridlines", value=True)
-    
-    # CHANGED: ora otteniamo anche la figura
+
+    # --- Interactive plot ---
     fig_interactive, selpts = plot_interactive(
         df, df0, x_col, y_col, sample_col, transforms, threshold,
         show_grid=show_grid, fig_size_cm=10.0
     )
-    # Export interactive plot as PNG
+
+    # Export interactive plot as PNG (10x10 cm circa)
     px_size = int(10.0 / 2.54 * 96)
-    if st.button("Download Interactive Plot as PNG"):
-        try:
-            img_bytes = fig_interactive.to_image(
-                format="png",
-                width=px_size,
-                height=px_size,
-                scale=2
-            )
-            st.download_button(
-                label="Save Interactive Plot",
-                data=img_bytes,
-                file_name="interactive_plot.png",
-                mime="image/png"
-            )
-        except Exception as e:
-            st.warning(f"Could not export interactive plot: {e}")
+    try:
+        img_bytes = fig_interactive.to_image(
+            format="png",
+            width=px_size,
+            height=px_size,
+            scale=2
+        )
+        st.download_button(
+            label="Download Interactive Plot as PNG",
+            data=img_bytes,
+            file_name="interactive_plot.png",
+            mime="image/png"
+        )
+    except Exception as e:
+        st.warning(f"Could not export interactive plot: {e}")
 
     if selpts and st.button("Remove Selected Points"):
         idxs = [pt['customdata'] for pt in selpts]
         st.session_state.dfi = df0.drop(index=idxs)
         st.experimental_rerun()
 
-        # Editable table
+    # Editable table
     st.subheader("Data Table (Editable)")
     if hasattr(st, 'data_editor'):
         edf = st.data_editor(df, num_rows="dynamic", use_container_width=True)
@@ -405,7 +388,7 @@ def main():
     st.header("Model Fitting Results")
     x_lin = np.linspace(df[x_col].min(), df[x_col].max(), 200)
     params_list, tt_list, fit_data = [], [], []
-    
+
     px_size = int(10.0 / 2.54 * 96)
     fig_fit = go.Figure()
     fig_fit.update_layout(
@@ -418,12 +401,11 @@ def main():
         yaxis=dict(showgrid=show_grid),
     )
 
-
     for sample in df[sample_col].unique():
         grp = df[df[sample_col]==sample].sort_values(x_col)
         model = global_model if use_global else st.sidebar.selectbox(
-                f"Model for {sample}", list(MODELS.keys()), index=list(MODELS.keys()).index("4PL")
-            )
+            f"Model for {sample}", list(MODELS.keys()), index=list(MODELS.keys()).index("4PL")
+        )
         x_vals = grp[x_col].values
         y_vals = apply_transforms(grp, transforms, y_col, sample_col).values
         try:
@@ -437,7 +419,8 @@ def main():
             # plot data and fit
             fig_fit.add_trace(go.Scatter(x=x_vals, y=y_vals, mode='markers', name=f"{sample} data"))
             y_line = MODELS[model][0](x_lin, *popt)
-            fig_fit.add_trace(go.Scatter(x=x_lin, y=y_line, mode='lines', name=f"{sample} fit"))            # record parameters
+            fig_fit.add_trace(go.Scatter(x=x_lin, y=y_line, mode='lines', name=f"{sample} fit"))
+            # record parameters
             param_names = MODEL_PARAM_NAMES[model]
             param_dict = {name: round(val, 4) for name, val in zip(param_names, popt)}
             # add forward formula
@@ -468,27 +451,25 @@ def main():
 
     fig_fit.add_hline(y=threshold, line_dash='dash')
     st.plotly_chart(fig_fit, use_container_width=False)
-    # Export fitted curves plot as PNG
-    if st.button("Download Fitted Plot as PNG"):
-        try:
-            img_bytes_fit = fig_fit.to_image(
-                format="png",
-                width=px_size,
-                height=px_size,
-                scale=2
-            )
-            st.download_button(
-                label="Save Fitted Plot",
-                data=img_bytes_fit,
-                file_name="fitted_plot.png",
-                mime="image/png"
-            )
-        except Exception as e:
-            st.warning(f"Could not export fitted plot: {e}")
 
+    # Export fitted curves plot as PNG
+    try:
+        img_bytes_fit = fig_fit.to_image(
+            format="png",
+            width=px_size,
+            height=px_size,
+            scale=2
+        )
+        st.download_button(
+            label="Download Fitted Plot as PNG",
+            data=img_bytes_fit,
+            file_name="fitted_plot.png",
+            mime="image/png"
+        )
+    except Exception as e:
+        st.warning(f"Could not export fitted plot: {e}")
 
     if st.button("Add Final Processed Data to Report"):
-        # Append the processed (transformed) data
         report_tables.append(("Final Processed Data", processed_df.copy()))
     if st.button("Add Final Fitting Data to Report"):
         report_tables.append(("Fitting Curves", pd.concat(fit_data, ignore_index=True)))
