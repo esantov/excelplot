@@ -7,4 +7,5 @@ openpyxl
 Pillow
 xlsxwriter
 streamlit-plotly-events
+kaleido
 
