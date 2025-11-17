@@ -198,26 +198,75 @@ def fit_and_eval(x: np.ndarray, y: np.ndarray, model_name: str, threshold: float
 # -----------------------------
 # 6. Interactive Plotting
 # -----------------------------
-def plot_interactive(df: pd.DataFrame, df0: pd.DataFrame, x_col: str, y_col: str,
-                     sample_col: str, transforms: list, threshold: float):
-    fig = go.Figure(); fig.update_layout(dragmode='lasso')
+def plot_interactive(
+    df: pd.DataFrame,
+    df0: pd.DataFrame,
+    x_col: str,
+    y_col: str,
+    sample_col: str,
+    transforms: list,
+    threshold: float,
+    show_grid: bool = True,
+    fig_size_cm: float = 10.0
+):
+    # Convert 10 cm to pixels (≈ 3.94 in * 96 dpi ≈ 378 px)
+    px_size = int(fig_size_cm / 2.54 * 96)
+
+    fig = go.Figure()
+    fig.update_layout(
+        dragmode='lasso',
+        width=px_size,
+        height=px_size,
+        xaxis_title=x_col,
+        yaxis_title=y_col,
+        xaxis=dict(showgrid=show_grid),
+        yaxis=dict(showgrid=show_grid),
+    )
+
     core_trans = transforms[:]  # no Remove T0
+
     # backdrop original data
     for sample in df0[sample_col].dropna().unique():
-        g0 = df0[df0[sample_col]==sample].sort_values(x_col)
-        fig.add_trace(go.Scatter(x=g0[x_col], y=g0[y_col], mode='markers', marker_color='lightgrey', showlegend=False))
+        g0 = df0[df0[sample_col] == sample].sort_values(x_col)
+        fig.add_trace(go.Scatter(
+            x=g0[x_col],
+            y=g0[y_col],
+            mode='markers',
+            marker_color='lightgrey',
+            showlegend=False
+        ))
+
     # current data and transforms
     for sample in df[sample_col].unique():
-        g = df[df[sample_col]==sample].sort_values(x_col)
+        g = df[df[sample_col] == sample].sort_values(x_col)
         y_tr = apply_transforms(g, core_trans, y_col, sample_col)
-        fig.add_trace(go.Scatter(x=g[x_col], y=g[y_col], mode='markers', name=f"{sample} raw", customdata=g.index))
-        fig.add_trace(go.Scatter(x=g[x_col], y=y_tr, mode='lines', name=f"{sample} trans", line_dash='dash'))
+        fig.add_trace(go.Scatter(
+            x=g[x_col],
+            y=g[y_col],
+            mode='markers',
+            name=f"{sample} raw",
+            customdata=g.index
+        ))
+        fig.add_trace(go.Scatter(
+            x=g[x_col],
+            y=y_tr,
+            mode='lines',
+            name=f"{sample} trans",
+            line_dash='dash'
+        ))
+
     fig.add_hline(y=threshold, line_dash='dot')
+
     selected = []
     if HAS_PLOTLY_EVENTS:
         selected = plotly_events(fig, select_event=True)
-    st.plotly_chart(fig, use_container_width=True)
-    return selected
+
+    # use_container_width=False per rispettare width/height
+    st.plotly_chart(fig, use_container_width=False)
+
+    # ritorniamo anche la figura, così possiamo esportarla
+    return fig, selected
+
 
 # -----------------------------
 # 7. Main App
@@ -289,7 +338,40 @@ def main():
     )
     use_global = st.sidebar.checkbox("Use Global Model for All")
 
-    selpts = plot_interactive(df, df0, x_col, y_col, sample_col, transforms, threshold)
+    transforms = st.sidebar.multiselect("Transforms", list(TRANSFORMS.keys()), default=["None"])
+    threshold = st.sidebar.number_input("Threshold", value=1.0)
+    global_model = st.sidebar.selectbox(
+        "Global Model", list(MODELS.keys()), index=list(MODELS.keys()).index("4PL")
+    )
+    use_global = st.sidebar.checkbox("Use Global Model for All")
+    
+    # NEW: toggle griglia
+    show_grid = st.sidebar.checkbox("Show gridlines", value=True)
+    
+    # CHANGED: ora otteniamo anche la figura
+    fig_interactive, selpts = plot_interactive(
+        df, df0, x_col, y_col, sample_col, transforms, threshold,
+        show_grid=show_grid, fig_size_cm=10.0
+    )
+    # Export interactive plot as PNG
+    px_size = int(10.0 / 2.54 * 96)
+    if st.button("Download Interactive Plot as PNG"):
+        try:
+            img_bytes = fig_interactive.to_image(
+                format="png",
+                width=px_size,
+                height=px_size,
+                scale=2
+            )
+            st.download_button(
+                label="Save Interactive Plot",
+                data=img_bytes,
+                file_name="interactive_plot.png",
+                mime="image/png"
+            )
+        except Exception as e:
+            st.warning(f"Could not export interactive plot: {e}")
+
     if selpts and st.button("Remove Selected Points"):
         idxs = [pt['customdata'] for pt in selpts]
         st.session_state.dfi = df0.drop(index=idxs)
@@ -323,7 +405,19 @@ def main():
     st.header("Model Fitting Results")
     x_lin = np.linspace(df[x_col].min(), df[x_col].max(), 200)
     params_list, tt_list, fit_data = [], [], []
-    fig_fit = go.Figure(); fig_fit.update_layout(title='Fitted Curves')
+    
+    px_size = int(10.0 / 2.54 * 96)
+    fig_fit = go.Figure()
+    fig_fit.update_layout(
+        title='Fitted Curves',
+        width=px_size,
+        height=px_size,
+        xaxis_title=x_col,
+        yaxis_title=y_col,
+        xaxis=dict(showgrid=show_grid),
+        yaxis=dict(showgrid=show_grid),
+    )
+
 
     for sample in df[sample_col].unique():
         grp = df[df[sample_col]==sample].sort_values(x_col)
@@ -373,7 +467,25 @@ def main():
             st.warning(f"Fit error for {sample}: {e}")
 
     fig_fit.add_hline(y=threshold, line_dash='dash')
-    st.plotly_chart(fig_fit, use_container_width=True)
+    st.plotly_chart(fig_fit, use_container_width=False)
+    # Export fitted curves plot as PNG
+    if st.button("Download Fitted Plot as PNG"):
+        try:
+            img_bytes_fit = fig_fit.to_image(
+                format="png",
+                width=px_size,
+                height=px_size,
+                scale=2
+            )
+            st.download_button(
+                label="Save Fitted Plot",
+                data=img_bytes_fit,
+                file_name="fitted_plot.png",
+                mime="image/png"
+            )
+        except Exception as e:
+            st.warning(f"Could not export fitted plot: {e}")
+
 
     if st.button("Add Final Processed Data to Report"):
         # Append the processed (transformed) data
