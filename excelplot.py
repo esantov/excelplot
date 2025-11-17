@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
+import plotly.io as pio
 from scipy.optimize import curve_fit, root_scalar
 
 # Optional import for point selection
@@ -14,9 +15,25 @@ except ImportError:
     plotly_events = None
     HAS_PLOTLY_EVENTS = False
 
+# Check for kaleido availability (for image export)
+try:
+    import kaleido  # noqa: F401
+    HAS_KALEIDO = True
+except ImportError:
+    HAS_KALEIDO = False
+
 # Global storage
 asymptotes = {}
 report_tables = []
+
+FIG_CM = 20.0       # figure size in cm
+DPI_EXPORT = 300    # desired dpi for export
+
+
+def cm_to_px(cm: float, dpi: int = DPI_EXPORT) -> int:
+    """Convert cm to pixels for a given dpi."""
+    return int(cm / 2.54 * dpi)
+
 
 # -----------------------------
 # 1. Data Loading
@@ -102,20 +119,16 @@ def five_pl_avslope(x, min_y, max_y, EC50, Slope, SlopeCon):
     """
     x = np.asarray(x, dtype=float)
 
-    # output
     y = np.empty_like(x, dtype=float)
 
-    # maschera x > 0 (dove applichiamo la formula completa)
     pos = x > 0
     nonpos = ~pos
 
-    # plateau per x <= 0
     plateau = min_y if Slope > 0 else max_y
     y[nonpos] = plateau
 
     if np.any(pos):
         x_pos = x[pos]
-        # evitare divisione per zero
         EC50_safe = EC50 if EC50 != 0 else 1e-9
         ratio = x_pos / EC50_safe
 
@@ -127,8 +140,8 @@ def five_pl_avslope(x, min_y, max_y, EC50, Slope, SlopeCon):
 
         y[pos] = min_y + (max_y - min_y) / (1.0 + term1 + term2)
 
-    # restituire scalare se in ingresso era scalare (utile per root_scalar)
-    if np.isscalar(x):
+    # Restituisci scalare se ingresso scalare (utile per root_scalar)
+    if np.ndim(x) == 0:
         return float(y)
     return y
 
@@ -199,10 +212,9 @@ def plot_interactive(
     transforms: list,
     threshold: float,
     show_grid: bool = True,
-    fig_size_cm: float = 10.0
+    fig_size_cm: float = FIG_CM
 ):
-    # Convert 10 cm to pixels (≈ 3.94 in * 96 dpi ≈ 378 px)
-    px_size = int(fig_size_cm / 2.54 * 96)
+    px_size = cm_to_px(fig_size_cm, DPI_EXPORT)
 
     fig = go.Figure()
     fig.update_layout(
@@ -211,8 +223,27 @@ def plot_interactive(
         height=px_size,
         xaxis_title=x_col,
         yaxis_title=y_col,
-        xaxis=dict(showgrid=show_grid),
-        yaxis=dict(showgrid=show_grid),
+        plot_bgcolor='white',
+        xaxis=dict(
+            showgrid=show_grid,
+            linecolor='black',
+            linewidth=2,
+            mirror=True,
+            ticks='outside',
+            tickcolor='black',
+            ticklen=6,
+            tickwidth=1
+        ),
+        yaxis=dict(
+            showgrid=show_grid,
+            linecolor='black',
+            linewidth=2,
+            mirror=True,
+            ticks='outside',
+            tickcolor='black',
+            ticklen=6,
+            tickwidth=1
+        ),
     )
 
     core_trans = transforms[:]  # no Remove T0
@@ -253,10 +284,8 @@ def plot_interactive(
     if HAS_PLOTLY_EVENTS:
         selected = plotly_events(fig, select_event=True)
 
-    # use_container_width=False per rispettare width/height
     st.plotly_chart(fig, use_container_width=False)
 
-    # ritorniamo anche la figura, così possiamo esportarla
     return fig, selected
 
 
@@ -322,7 +351,6 @@ def main():
     x_col = st.sidebar.selectbox("X Column", num_cols)
     y_col = st.sidebar.selectbox("Y Column", num_cols)
 
-    # --- widgets UNICI per modello / trasformazioni ---
     transforms = st.sidebar.multiselect("Transforms", list(TRANSFORMS.keys()), default=["None"])
     threshold = st.sidebar.number_input("Threshold", value=1.0)
     global_model = st.sidebar.selectbox(
@@ -334,26 +362,42 @@ def main():
     # --- Interactive plot ---
     fig_interactive, selpts = plot_interactive(
         df, df0, x_col, y_col, sample_col, transforms, threshold,
-        show_grid=show_grid, fig_size_cm=10.0
+        show_grid=show_grid, fig_size_cm=FIG_CM
     )
 
-    # Export interactive plot as PNG (10x10 cm circa)
-    px_size = int(10.0 / 2.54 * 96)
-    try:
+    px_size = cm_to_px(FIG_CM, DPI_EXPORT)
+
+    # Export interactive plot as PNG 20x20 cm @ 300 dpi
+    if HAS_KALEIDO:
         img_bytes = fig_interactive.to_image(
             format="png",
             width=px_size,
             height=px_size,
-            scale=2
+            scale=1
         )
         st.download_button(
-            label="Download Interactive Plot as PNG",
+            label="Download Interactive Plot as PNG (20x20cm, 300dpi)",
             data=img_bytes,
             file_name="interactive_plot.png",
-            mime="image/png"
+            mime="image/png",
+            key="dl_interactive_png"
         )
-    except Exception as e:
-        st.warning(f"Could not export interactive plot: {e}")
+    else:
+        st.info("PNG export requires the 'kaleido' package (pip install kaleido).")
+
+    # Export interactive plot as HTML (always available)
+    html_bytes_interactive = pio.to_html(
+        fig_interactive,
+        full_html=False,
+        include_plotlyjs='cdn'
+    ).encode("utf-8")
+    st.download_button(
+        label="Download Interactive Plot as HTML",
+        data=html_bytes_interactive,
+        file_name="interactive_plot.html",
+        mime="text/html",
+        key="dl_interactive_html"
+    )
 
     if selpts and st.button("Remove Selected Points"):
         idxs = [pt['customdata'] for pt in selpts]
@@ -389,16 +433,34 @@ def main():
     x_lin = np.linspace(df[x_col].min(), df[x_col].max(), 200)
     params_list, tt_list, fit_data = [], [], []
 
-    px_size = int(10.0 / 2.54 * 96)
     fig_fit = go.Figure()
     fig_fit.update_layout(
         title='Fitted Curves',
         width=px_size,
         height=px_size,
+        plot_bgcolor='white',
         xaxis_title=x_col,
         yaxis_title=y_col,
-        xaxis=dict(showgrid=show_grid),
-        yaxis=dict(showgrid=show_grid),
+        xaxis=dict(
+            showgrid=show_grid,
+            linecolor='black',
+            linewidth=2,
+            mirror=True,
+            ticks='outside',
+            tickcolor='black',
+            ticklen=6,
+            tickwidth=1
+        ),
+        yaxis=dict(
+            showgrid=show_grid,
+            linecolor='black',
+            linewidth=2,
+            mirror=True,
+            ticks='outside',
+            tickcolor='black',
+            ticklen=6,
+            tickwidth=1
+        ),
     )
 
     for sample in df[sample_col].unique():
@@ -452,22 +514,37 @@ def main():
     fig_fit.add_hline(y=threshold, line_dash='dash')
     st.plotly_chart(fig_fit, use_container_width=False)
 
-    # Export fitted curves plot as PNG
-    try:
+    # Export fitted curves plot as PNG 20x20 cm @ 300 dpi
+    if HAS_KALEIDO:
         img_bytes_fit = fig_fit.to_image(
             format="png",
             width=px_size,
             height=px_size,
-            scale=2
+            scale=1
         )
         st.download_button(
-            label="Download Fitted Plot as PNG",
+            label="Download Fitted Plot as PNG (20x20cm, 300dpi)",
             data=img_bytes_fit,
             file_name="fitted_plot.png",
-            mime="image/png"
+            mime="image/png",
+            key="dl_fitted_png"
         )
-    except Exception as e:
-        st.warning(f"Could not export fitted plot: {e}")
+    else:
+        st.info("PNG export for fitted plot requires the 'kaleido' package (pip install kaleido).")
+
+    # Export fitted plot as HTML (interactive)
+    html_bytes_fit = pio.to_html(
+        fig_fit,
+        full_html=False,
+        include_plotlyjs='cdn'
+    ).encode("utf-8")
+    st.download_button(
+        label="Download Fitted Plot as HTML",
+        data=html_bytes_fit,
+        file_name="fitted_plot.html",
+        mime="text/html",
+        key="dl_fitted_html"
+    )
 
     if st.button("Add Final Processed Data to Report"):
         report_tables.append(("Final Processed Data", processed_df.copy()))
@@ -508,20 +585,22 @@ def main():
                 tbl.to_excel(writer, sheet_name=name[:31], index=False)
             pd.DataFrame(params_list).to_excel(writer, sheet_name='Fit Parameters', index=False)
             pd.DataFrame(tt_list, columns=["Sample","TT","TT_SE"]).to_excel(writer, sheet_name='Time to Threshold', index=False)
-            try:
-                img_buf = io.BytesIO()
-                fig_fit.write_image(img_buf, format='png')
-                img_buf.seek(0)
-                ws = writer.book.add_worksheet('Fitted Plot')
-                ws.insert_image('B2', 'fitted_plot.png', {'image_data': img_buf})
-            except Exception:
-                pass
+            if HAS_KALEIDO:
+                try:
+                    img_buf = io.BytesIO()
+                    fig_fit.write_image(img_buf, format='png', width=px_size, height=px_size, scale=1)
+                    img_buf.seek(0)
+                    ws = writer.book.add_worksheet('Fitted Plot')
+                    ws.insert_image('B2', 'fitted_plot.png', {'image_data': img_buf})
+                except Exception:
+                    pass
         buf.seek(0)
         st.download_button(
             label="Download Report",
             data=buf,
             file_name="Analysis_Report.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="dl_report"
         )
 
 if __name__ == '__main__':
