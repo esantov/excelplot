@@ -63,7 +63,7 @@ MODEL_PARAM_NAMES = {
     "4PL": ["A", "B", "C", "D"],
     "5PL": ["A", "B", "C", "D", "G"],
     "Gompertz": ["a", "b", "c"],
-    "Don Levin Sigmoid 2D": ["a1","b1","c1","a2","b2","c2","a3","b3","c3"]
+    "Don Levin Sigmoid 2D": ["a1","b1","c1","a2","b2","c2","a3","b3","c3"],
     "5PL AvSlope": ["min", "max", "EC50", "Slope", "SlopeCon"]
 }
 
@@ -74,7 +74,7 @@ FORMULA_TEMPLATES = {
     "4PL":         "y = {D} + ({A}-{D})/(1+(x/{C})**{B})",
     "5PL":         "y = {D} + ({A}-{D})/((1+(x/{C})**{B})**{G})",
     "Gompertz":    "y = {a} * exp(-{b} * exp(-{c}*x))",
-    "Don Levin Sigmoid 2D": "y = {a1}/(1+exp(-(x-{b1})/{c1})) + {a2}/(1+exp(-(x-{b2})/{c2})) + {a3}/(1+exp(-(x-{b3})/{c3}))"
+    "Don Levin Sigmoid 2D": "y = {a1}/(1+exp(-(x-{b1})/{c1})) + {a2}/(1+exp(-(x-{b2})/{c2})) + {a3}/(1+exp(-(x-{b3})/{c3}))",
      "5PL AvSlope": (
             "AvSlope = 2*ABS(Slope)*SlopeCon/(1+SlopeCon); "
             "fx = 1/(1 + (x/EC50)^AvSlope); "
@@ -90,7 +90,7 @@ FORMULA_INV_TEMPLATES = {
     "4PL":         "x = {C} * POWER(((A-D)/(y-D) - 1), 1/{B})",
     "5PL":         "x = {C} * POWER((((A-D)/(y-D))^(1/{G}) - 1), 1/{B})",
     "Gompertz":    "x = -(1/{c}) * LN(-LN(y/{a})/{b})",
-    "Don Levin Sigmoid 2D": "(No closed-form inverse)"
+    "Don Levin Sigmoid 2D": "(No closed-form inverse)",
     "5PL AvSlope": "(No closed-form inverse)"
 }
 
@@ -151,7 +151,7 @@ MODELS = {
             + a2/(1+np.exp(-(x-b2)/c2))
             + a3/(1+np.exp(-(x-b3)/c3)),
         [1, np.median, 1, 1, np.median, 1, 1, np.median, 1]
-    )
+    ),
     "5PL AvSlope": (
         five_pl_avslope,
         # i valori in questa lista per ora non vengono usati come p0,
