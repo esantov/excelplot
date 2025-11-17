@@ -64,6 +64,7 @@ MODEL_PARAM_NAMES = {
     "5PL": ["A", "B", "C", "D", "G"],
     "Gompertz": ["a", "b", "c"],
     "Don Levin Sigmoid 2D": ["a1","b1","c1","a2","b2","c2","a3","b3","c3"]
+    "5PL AvSlope": ["min", "max", "EC50", "Slope", "SlopeCon"]
 }
 
 # Formula templates for export
@@ -74,6 +75,11 @@ FORMULA_TEMPLATES = {
     "5PL":         "y = {D} + ({A}-{D})/((1+(x/{C})**{B})**{G})",
     "Gompertz":    "y = {a} * exp(-{b} * exp(-{c}*x))",
     "Don Levin Sigmoid 2D": "y = {a1}/(1+exp(-(x-{b1})/{c1})) + {a2}/(1+exp(-(x-{b2})/{c2})) + {a3}/(1+exp(-(x-{b3})/{c3}))"
+     "5PL AvSlope": (
+            "AvSlope = 2*ABS(Slope)*SlopeCon/(1+SlopeCon); "
+            "fx = 1/(1 + (x/EC50)^AvSlope); "
+            "y = min + (max-min)/(1 + fx*(x/EC50)^(-Slope) + (1-fx)*(x/EC50)^(-Slope*SlopeCon))"
+        )    
 }
 
 
@@ -85,11 +91,54 @@ FORMULA_INV_TEMPLATES = {
     "5PL":         "x = {C} * POWER((((A-D)/(y-D))^(1/{G}) - 1), 1/{B})",
     "Gompertz":    "x = -(1/{c}) * LN(-LN(y/{a})/{b})",
     "Don Levin Sigmoid 2D": "(No closed-form inverse)"
+    "5PL AvSlope": "(No closed-form inverse)"
 }
 
 # -----------------------------
 # 3. Model Definitions
 # -----------------------------
+def five_pl_avslope(x, min_y, max_y, EC50, Slope, SlopeCon):
+    """
+    Modello asimmetrico tipo 5PL con AvSlope e mix di due pendenze.
+
+    AvSlope = 2*abs(Slope)*SlopeCon/(1+SlopeCon)
+    fx      = 1/(1 + (x/EC50)^AvSlope)
+    f1      = min + (max-min)/(1 + fx*(x/EC50)^(-Slope) + (1-fx)*(x/EC50)^(-Slope*SlopeCon))
+    f(x)    = min (o max) per x <= 0, altrimenti f1
+    """
+    x = np.asarray(x, dtype=float)
+
+    # output
+    y = np.empty_like(x, dtype=float)
+
+    # maschera x > 0 (dove applichiamo la formula completa)
+    pos = x > 0
+    nonpos = ~pos
+
+    # plateau per x <= 0
+    plateau = min_y if Slope > 0 else max_y
+    y[nonpos] = plateau
+
+    if np.any(pos):
+        x_pos = x[pos]
+        # evitare divisione per zero
+        EC50_safe = EC50 if EC50 != 0 else 1e-9
+        ratio = x_pos / EC50_safe
+
+        AvSlope = 2.0 * np.abs(Slope) * SlopeCon / (1.0 + SlopeCon)
+        fx = 1.0 / (1.0 + np.power(ratio, AvSlope))
+
+        term1 = fx * np.power(ratio, -Slope)
+        term2 = (1.0 - fx) * np.power(ratio, -Slope * SlopeCon)
+
+        y[pos] = min_y + (max_y - min_y) / (1.0 + term1 + term2)
+
+    # restituire scalare se in ingresso era scalare (utile per root_scalar)
+    if np.isscalar(x):
+        return float(y)
+    return y
+
+
 MODELS = {
     "Linear":      (lambda x,a,b: a*x + b, [1,0]),
     "Sigmoid":     (lambda x,a,b: 1/(1 + np.exp(-(x-a)/b)), [np.median,1]),
@@ -102,6 +151,12 @@ MODELS = {
             + a2/(1+np.exp(-(x-b2)/c2))
             + a3/(1+np.exp(-(x-b3)/c3)),
         [1, np.median, 1, 1, np.median, 1, 1, np.median, 1]
+    )
+    "5PL AvSlope": (
+        five_pl_avslope,
+        # i valori in questa lista per ora non vengono usati come p0,
+        # ma manteniamo una struttura coerente
+        [0.0, 1.0, 1.0, 1.0, 1.0]
     )
 }
 
